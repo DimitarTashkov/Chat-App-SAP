@@ -1,0 +1,21 @@
+{
+  "name": "chat-app",
+  "version": "1.0.0",
+  "description": "Real-time Chat Application using Vanilla JavaScript, HTML, CSS, and Firebase",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -p 8080"
+  },
+  "keywords": [
+    "chat",
+    "realtime",
+    "firebase",
+    "spa",
+    "vanilla-js"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}

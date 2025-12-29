@@ -1,0 +1,12 @@
+# Firebase configuration with actual credentials
+src/js/firebase-config.js
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node modules
+node_modules/
