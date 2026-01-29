@@ -20,11 +20,17 @@
 ### Phase 2: Authentication System
 
 **[3] Implement user registration functionality**
-- Create `src/js/services/authService.js` module.
-- Implement `registerUser(email, password, username)` function using Firebase Auth.
-- Create user document in Firestore after successful registration.
-- Handle registration errors.
-- **Why needed**: To allow new users to sign up and have their data stored.
+- Created `src/js/services/authService.js` module.
+- Implemented `registerUser(email, password, username)`.
+- Added logic to create user document in Firestore `users` collection.
+- Included error handling (friendly messages) and profile updates (photo/name).
+- **Files Changed**: `src/js/services/authService.js`
+
+**[4] Implement user login functionality**
+- Implement `loginUser(email, password)` function in `authService.js`.
+- Handle login errors and display to user.
+- Store user session data (managed by Firebase automatically, but we might need to update status).
+- **Why needed**: To allow existing users to sign in.
 
 ---
 **Въпрос към мен:** Да продължа ли към следващата задача?
