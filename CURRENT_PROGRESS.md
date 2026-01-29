@@ -27,10 +27,23 @@
 - **Files Changed**: `src/js/services/authService.js`
 
 **[4] Implement user login functionality**
-- Implement `loginUser(email, password)` function in `authService.js`.
-- Handle login errors and display to user.
-- Store user session data (managed by Firebase automatically, but we might need to update status).
-- **Why needed**: To allow existing users to sign in.
+- Implemented `loginUser(email, password)` in `authService.js`.
+- Added imports for `signInWithEmailAndPassword` and `updateDoc`.
+- Added logic to update Firestore user status to "online" upon login.
+- Added error handling for common login issues.
+- **Files Changed**: `src/js/services/authService.js`
+
+**[5] Implement logout functionality**
+- Implemented `logoutUser()` function in `authService.js`.
+- Added logic to set user status to 'offline' before signing out.
+- Handled errors during logout.
+- **Files Changed**: `src/js/services/authService.js`
+
+**[6] Add authentication state listener**
+- Implement `onAuthStateChanged()` listener in `app.js`.
+- Automatically redirect to login if not authenticated (unless on login page).
+- Load user data when authenticated.
+- **Why needed**: To protect routes and maintain user state across reloads.
 
 ---
 **Въпрос към мен:** Да продължа ли към следващата задача?

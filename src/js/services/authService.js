@@ -1,5 +1,5 @@
-import { createUserWithEmailAndPassword, updateProfile } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
-import { doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
+import { doc, setDoc, serverTimestamp, updateDoc } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js';
 
 /**
  * Registers a new user with Firebase Auth and creates a Firestore document.
@@ -58,5 +58,76 @@ export async function registerUser(email, password, username) {
         }
 
         return { success: false, error: errorMessage };
+    }
+}
+
+/**
+ * Logs in an existing user using Firebase Auth.
+ * @param {string} email 
+ * @param {string} password 
+ * @returns {Promise<{success: boolean, user?: object, error?: string}>}
+ */
+export async function loginUser(email, password) {
+    try {
+        const auth = window.auth;
+        const db = window.db;
+
+        if (!auth || !db) {
+            throw new Error("Firebase not initialized");
+        }
+
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Update user status to 'online' in Firestore
+        // We do this in a non-blocking way (fire and forget) or await it if strict sync is needed
+        await updateDoc(doc(db, "users", user.uid), {
+            status: "online",
+            lastSeen: serverTimestamp()
+        });
+
+        return { success: true, user: user };
+    } catch (error) {
+        console.error("Error logging in user:", error);
+        
+        let errorMessage = "Failed to log in.";
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = "Invalid email or password.";
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMessage = "Too many failed attempts. Please try again later.";
+        }
+
+        return { success: false, error: errorMessage };
+    }
+}
+
+/**
+ * Logs out the current user.
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function logoutUser() {
+    try {
+        const auth = window.auth;
+        const db = window.db;
+
+        if (!auth || !db) {
+            throw new Error("Firebase not initialized");
+        }
+
+        const user = auth.currentUser;
+
+        if (user) {
+            // Update user status to 'offline' in Firestore
+            await updateDoc(doc(db, "users", user.uid), {
+                status: "offline",
+                lastSeen: serverTimestamp()
+            });
+        }
+
+        await signOut(auth);
+        return { success: true };
+    } catch (error) {
+        console.error("Error logging out:", error);
+        return { success: false, error: error.message };
     }
 }
