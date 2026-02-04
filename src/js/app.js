@@ -6,6 +6,8 @@
 // Import view functions
 import { renderLoginView } from './views/loginView.js';
 import { renderDashboardView } from './views/dashboardView.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
+import { registerUser, loginUser, logoutUser } from './services/authService.js';
 
 /**
  * Router Class
@@ -104,6 +106,7 @@ class Router {
                 const submitBtn = document.getElementById('auth-submit-btn');
                 const toggleText = document.getElementById('auth-toggle-text');
                 const usernameField = document.getElementById('username-field');
+                const usernameInput = document.getElementById('username');
 
                 if (isLogin) {
                     // Switch to register
@@ -113,6 +116,7 @@ class Router {
                     toggleBtn.textContent = 'Login';
                     toggleBtn.dataset.mode = 'register';
                     usernameField.classList.remove('hidden');
+                    if (usernameInput) usernameInput.disabled = false;
                 } else {
                     // Switch to login
                     title.textContent = 'Welcome Back';
@@ -121,6 +125,7 @@ class Router {
                     toggleBtn.textContent = 'Register';
                     toggleBtn.dataset.mode = 'login';
                     usernameField.classList.add('hidden');
+                    if (usernameInput) usernameInput.disabled = true;
                 }
             });
         }
@@ -128,18 +133,58 @@ class Router {
         // Handle form submission
         const authForm = document.getElementById('auth-form');
         if (authForm) {
-            authForm.addEventListener('submit', (e) => {
+            authForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const isLogin = toggleBtn.dataset.mode === 'login';
                 const email = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
                 const username = document.getElementById('username')?.value;
+                const submitBtn = document.getElementById('auth-submit-btn');
 
-                console.log(`${isLogin ? 'Login' : 'Register'} attempt:`, { email, username });
+                // Basic validation
+                if (!email || !password) {
+                    alert('Please fill in all fields');
+                    return;
+                }
                 
-                // TODO: Implement Firebase authentication
-                // For now, just navigate to dashboard
-                this.navigateTo('dashboard');
+                if (!isLogin && !username) {
+                    alert('Please enter a username');
+                    return;
+                }
+
+                // Show loading state
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.textContent = 'Processing...';
+                submitBtn.disabled = true;
+
+                try {
+                    let result;
+                    if (isLogin) {
+                        console.log('Attempting login...');
+                        result = await loginUser(email, password);
+                    } else {
+                        console.log('Attempting registration...');
+                        result = await registerUser(email, password, username);
+                    }
+
+                    if (result && result.success) {
+                        console.log('Auth successful', result.user);
+                        // Manually navigate to dashboard since auth state change listener might be delayed
+                        this.navigateTo('dashboard');
+                    } else {
+                        console.error('Auth error:', result?.error);
+                        alert('Auth failed: ' + (result?.error || 'Unknown error'));
+                        // Reset button
+                        submitBtn.textContent = originalBtnText;
+                        submitBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Unexpected auth error:', error);
+                    alert('An unexpected error occurred. Please try again.');
+                    // Reset button
+                    submitBtn.textContent = originalBtnText;
+                    submitBtn.disabled = false;
+                }
             });
         }
     }
@@ -218,8 +263,37 @@ class Router {
         // Listen for hash changes
         window.addEventListener('hashchange', () => {
             const newHash = window.location.hash.slice(1) || 'login';
+             // If trying to access protected route while not logged in, redirect will be handled by auth listener
+             // But for manual URL changes, `navigateTo` will execute.
+             // We can check auth state here too, but the listener is more robust.
             this.navigateTo(newHash);
         });
+
+        // Initialize Auth State Listener
+        // We use window.auth which is initialized in index.html
+        // We need to wait for it to be available if it's not immediately ready, 
+        // but due to module loading order, it should be.
+        const auth = window.auth;
+        
+        if (auth) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    console.log("User is signed in:", user.uid);
+                    // User is signed in
+                    if (this.currentViewName === 'login') {
+                        this.navigateTo('dashboard');
+                    }
+                } else {
+                    console.log("User is signed out");
+                    // User is signed out
+                    if (this.currentViewName !== 'login') {
+                        this.navigateTo('login');
+                    }
+                }
+            });
+        } else {
+            console.error("Firebase Auth not initialized when Router started");
+        }
 
         // Navigate to initial view
         this.navigateTo(hash);
