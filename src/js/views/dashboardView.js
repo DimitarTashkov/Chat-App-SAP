@@ -41,7 +41,9 @@ export function renderDashboardView(params = {}) {
                 <div class="sidebar-footer">
                     <div class="user-profile">
                         <div class="user-avatar">
-                            ${user.username.charAt(0).toUpperCase()}
+                            ${user.photoURL 
+                                ? `<img src="${user.photoURL}" alt="${user.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` 
+                                : user.username.charAt(0).toUpperCase()}
                         </div>
                         <div class="user-info">
                             <div class="user-name">${user.username}</div>
@@ -70,7 +72,7 @@ export function renderDashboardView(params = {}) {
 
                 <!-- Content -->
                 <div class="main-content">
-                    ${renderDashboardContent(activeSection)}
+                    ${renderDashboardContent(activeSection, user)}
                 </div>
             </main>
         </div>
@@ -80,16 +82,17 @@ export function renderDashboardView(params = {}) {
 /**
  * Render the dashboard content based on active section
  * @param {string} section - Active section name
+ * @param {Object} user - User object
  * @returns {string} HTML string for the content
  */
-function renderDashboardContent(section) {
+function renderDashboardContent(section, user) {
     switch (section) {
         case 'rooms':
             return renderRoomsContent();
         case 'friends':
             return renderFriendsContent();
         case 'settings':
-            return renderSettingsContent();
+            return renderSettingsContent(user);
         default:
             return renderRoomsContent();
     }
@@ -161,32 +164,56 @@ function renderFriendsContent() {
 
 /**
  * Render settings content
+ * @param {Object} user - User object
  * @returns {string} HTML string for settings section
  */
-function renderSettingsContent() {
+function renderSettingsContent(user) {
+    if (!user) user = { username: '', email: '', bio: '', status: 'online' };
+    
     return `
         <div class="card" style="max-width: 600px;">
             <h3 style="color: white; margin-bottom: 1.5rem;">Account Settings</h3>
             
-            <form style="display: flex; flex-direction: column; gap: 1rem;">
+            <form id="settings-form" style="display: flex; flex-direction: column; gap: 1rem;">
                 <div>
-                    <label style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                    <label for="settings-username" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
                         Username
                     </label>
-                    <input type="text" value="User" disabled>
+                    <input type="text" id="settings-username" value="${user.username || ''}" disabled style="cursor: not-allowed; opacity: 0.7;">
+                    <small style="color: #72767d; font-size: 0.75rem;">Username cannot be changed currently.</small>
                 </div>
                 
                 <div>
-                    <label style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                    <label for="settings-email" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
                         Email
                     </label>
-                    <input type="email" value="user@example.com" disabled>
+                    <input type="email" id="settings-email" value="${user.email || ''}" disabled style="cursor: not-allowed; opacity: 0.7;">
                 </div>
 
-                <div style="margin-top: 1rem;">
-                    <button type="button" class="btn-secondary">
-                        Change Password
+                <div>
+                    <label for="settings-bio" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                        Bio
+                    </label>
+                    <textarea id="settings-bio" rows="3" placeholder="Tell us about yourself" style="width: 100%; padding: 10px; background-color: #202225; color: #dcddde; border: 1px solid #202225; border-radius: 4px;">${user.bio || ''}</textarea>
+                </div>
+
+                <div>
+                    <label for="settings-status" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                        Status
+                    </label>
+                    <select id="settings-status" style="width: 100%; padding: 10px; background-color: #202225; color: #dcddde; border: 1px solid #202225; border-radius: 4px;">
+                        <option value="online" ${user.status === 'online' ? 'selected' : ''}>Online</option>
+                        <option value="away" ${user.status === 'away' ? 'selected' : ''}>Away</option>
+                        <option value="dnd" ${user.status === 'dnd' ? 'selected' : ''}>Do Not Disturb</option>
+                        <option value="offline" ${user.status === 'offline' ? 'selected' : ''}>Invisible</option>
+                    </select>
+                </div>
+
+                <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                    <button type="submit" class="btn-primary" id="save-settings-btn">
+                        Save Changes
                     </button>
+                    <!-- Future: Change Password Button -->
                 </div>
             </form>
         </div>
@@ -196,14 +223,15 @@ function renderSettingsContent() {
 /**
  * Update the dashboard content without re-rendering the entire view
  * @param {string} section - Section to update
+ * @param {Object} user - User object
  */
-export function updateDashboardSection(section) {
+export function updateDashboardSection(section, user) {
     const contentEl = document.querySelector('.main-content');
     const headerTitle = document.querySelector('.main-header h3');
     const createRoomBtn = document.getElementById('create-room-btn');
 
     if (contentEl) {
-        contentEl.innerHTML = renderDashboardContent(section);
+        contentEl.innerHTML = renderDashboardContent(section, user);
     }
 
     if (headerTitle) {
