@@ -5,9 +5,10 @@
 
 // Import view functions
 import { renderLoginView } from './views/loginView.js';
-import { renderDashboardView } from './views/dashboardView.js';
+import { renderDashboardView, updateDashboardSection } from './views/dashboardView.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import { registerUser, loginUser, logoutUser } from './services/authService.js';
+import * as userService from './services/userService.js';
 
 /**
  * Router Class
@@ -196,16 +197,59 @@ class Router {
         // Navigation items
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
-            item.addEventListener('click', () => {
-                // Remove active class from all items
-                navItems.forEach(i => i.classList.remove('active'));
-                // Add active class to clicked item
-                item.classList.add('active');
+            item.addEventListener('click', async () => {
+                // ... classes handled in updateDashboardSection but let's keep visual feedback instant if needed 
+                // Actually updateDashboardSection handles classes too.
                 
                 const section = item.dataset.section;
-                console.log('Dashboard section:', section);
-                // TODO: Implement section switching
+                console.log('Switching to section:', section);
+                
+                try {
+                    const uid = window.auth.currentUser?.uid;
+                    let user = null;
+                    if (uid) {
+                        user = await userService.getUserById(uid);
+                    }
+                    updateDashboardSection(section, user);
+                } catch (error) {
+                    console.error("Error switching section:", error);
+                }
             });
+        });
+
+        // Settings Form Handling (Event Delegation)
+        const dashboardMain = document.querySelector('.dashboard-main') || document.body;
+        dashboardMain.addEventListener('submit', async (e) => {
+            if (e.target.id === 'settings-form') {
+                e.preventDefault();
+                const bio = document.getElementById('settings-bio').value;
+                const status = document.getElementById('settings-status').value;
+                const saveBtn = document.getElementById('save-settings-btn');
+                
+                if (saveBtn) {
+                     const originalText = saveBtn.textContent;
+                     saveBtn.textContent = 'Saving...';
+                     saveBtn.disabled = true;
+
+                     try {
+                         const uid = window.auth.currentUser?.uid;
+                         if (uid) {
+                             await userService.updateUserProfile(uid, { bio: bio });
+                             await userService.updateUserStatus(uid, status);
+                             
+                             // Also update local UI elements like status in sidebar if needed
+                             // For now, simple alert or toast
+                             alert('Profile updated successfully!');
+                         }
+                     } catch (error) {
+                         console.error("Error saving profile:", error);
+                         alert('Failed to save profile.');
+                     } finally {
+                         saveBtn.textContent = originalText;
+                         saveBtn.disabled = false;
+                     }
+                }
+            }
         });
 
         // Logout button
@@ -276,12 +320,36 @@ class Router {
         const auth = window.auth;
         
         if (auth) {
-            onAuthStateChanged(auth, (user) => {
+            onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     console.log("User is signed in:", user.uid);
-                    // User is signed in
-                    if (this.currentViewName === 'login') {
-                        this.navigateTo('dashboard');
+                    
+                    // Fetch full user profile
+                    try {
+                        let userProfile = await userService.getUserById(user.uid);
+                        
+                        // Fallback to Auth data if Firestore document is missing
+                        if (!userProfile) {
+                            console.warn("User profile missing in Firestore, using Auth data fallback.");
+                            userProfile = {
+                                username: user.displayName || 'User',
+                                email: user.email,
+                                photoURL: user.photoURL,
+                                uid: user.uid
+                            };
+                        }
+
+                        // User is signed in
+                        // Always navigate to dashboard if on login, OR if we are already on dashboard but need to update data
+                        if (this.currentViewName === 'login') {
+                            this.navigateTo('dashboard', { user: userProfile });
+                        } else if (this.currentViewName === 'dashboard') {
+                            // If we're already on dashboard, re-render to show correct user info if missing
+                            // OR we could just update the DOM directly, but re-rendering is safer for now
+                            this.navigateTo('dashboard', { user: userProfile }); 
+                        }
+                    } catch (error) {
+                        console.error("Error fetching user profile:", error);
                     }
                 } else {
                     console.log("User is signed out");
@@ -321,6 +389,7 @@ const router = new Router();
 
 // Make router available globally for debugging
 window.router = router;
+window.userService = userService;
 
 // Export router for use in other modules
 export default router;
