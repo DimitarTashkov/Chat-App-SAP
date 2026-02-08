@@ -11,6 +11,7 @@
 export function renderDashboardView(params = {}) {
     const activeSection = params.activeSection || 'rooms';
     const user = params.user || { username: 'User', email: 'user@example.com' };
+    const data = params.data || [];
 
     return `
         <div class="dashboard-container">
@@ -72,7 +73,7 @@ export function renderDashboardView(params = {}) {
 
                 <!-- Content -->
                 <div class="main-content">
-                    ${renderDashboardContent(activeSection, user)}
+                    ${renderDashboardContent(activeSection, user, data)}
                 </div>
             </main>
         </div>
@@ -83,42 +84,50 @@ export function renderDashboardView(params = {}) {
  * Render the dashboard content based on active section
  * @param {string} section - Active section name
  * @param {Object} user - User object
+ * @param {Array} data - Data for the section (rooms, friends, etc.)
  * @returns {string} HTML string for the content
  */
-function renderDashboardContent(section, user) {
+function renderDashboardContent(section, user, data = []) {
     switch (section) {
         case 'rooms':
-            return renderRoomsContent();
+            return renderRoomsContent(data);
         case 'friends':
             return renderFriendsContent();
         case 'settings':
             return renderSettingsContent(user);
         default:
-            return renderRoomsContent();
+            return renderRoomsContent(data);
     }
 }
 
 /**
  * Render rooms content
+ * @param {Array} rooms - Array of room objects
  * @returns {string} HTML string for rooms section
  */
-function renderRoomsContent() {
-    return `
-        <div class="room-list">
-            <!-- Sample room items -->
-            <div class="room-item" data-room-id="room1">
-                <span class="room-name"># general</span>
-                <span class="room-unread">3</span>
+function renderRoomsContent(rooms = []) {
+    if (!rooms || rooms.length === 0) {
+        return `
+            <div class="empty-state">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">💬</div>
+                <h3 style="color: white; margin-bottom: 0.5rem;">No Rooms Yet</h3>
+                <p style="color: #b9bbbe; text-align: center;">Join a room or create a new one to start chatting!</p>
             </div>
-            <div class="room-item" data-room-id="room2">
-                <span class="room-name"># random</span>
+        `;
+    }
+
+    const roomsHtml = rooms.map(room => {
+        const isPrivate = room.type === 'private';
+        return `
+            <div class="room-item" data-room-id="${room.id}">
+                <span class="room-icon">${isPrivate ? '🔒' : '#'}</span>
+                <span class="room-name">${room.name}</span>
+                ${room.unreadCount ? `<span class="room-unread">${room.unreadCount}</span>` : ''}
             </div>
-            <div class="room-item" data-room-id="room3">
-                <span class="room-name"># announcements</span>
-                <span class="room-unread">1</span>
-            </div>
-        </div>
-    `;
+        `;
+    }).join('');
+
+    return `<div class="room-list">${roomsHtml}</div>`;
 }
 
 /**
@@ -224,14 +233,15 @@ function renderSettingsContent(user) {
  * Update the dashboard content without re-rendering the entire view
  * @param {string} section - Section to update
  * @param {Object} user - User object
+ * @param {Array} data - Data for the section
  */
-export function updateDashboardSection(section, user) {
+export function updateDashboardSection(section, user, data = []) {
     const contentEl = document.querySelector('.main-content');
     const headerTitle = document.querySelector('.main-header h3');
     const createRoomBtn = document.getElementById('create-room-btn');
 
     if (contentEl) {
-        contentEl.innerHTML = renderDashboardContent(section, user);
+        contentEl.innerHTML = renderDashboardContent(section, user, data);
     }
 
     if (headerTitle) {

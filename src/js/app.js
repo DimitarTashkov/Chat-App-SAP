@@ -10,7 +10,7 @@ import { renderCreateRoomModal } from './views/createRoomModal.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import { registerUser, loginUser, logoutUser } from './services/authService.js';
 import * as userService from './services/userService.js';
-import { createRoom } from './services/roomService.js';
+import { createRoom, getRooms } from './services/roomService.js';
 
 /**
  * Router Class
@@ -193,6 +193,28 @@ class Router {
     }
 
     /**
+     * Helper to load data for the active section
+     * @param {string} section 
+     * @param {string} uid 
+     */
+    async loadSectionData(section, uid) {
+        if (!uid) return [];
+        
+        switch (section) {
+            case 'rooms':
+                try {
+                    return await getRooms(uid);
+                } catch (error) {
+                    console.error("Error loading rooms:", error);
+                    return [];
+                }
+            // Add other cases here (friends, etc)
+            default:
+                return [];
+        }
+    }
+
+    /**
      * Attach event listeners for dashboard view
      */
     attachDashboardListeners() {
@@ -209,10 +231,13 @@ class Router {
                 try {
                     const uid = window.auth.currentUser?.uid;
                     let user = null;
+                    let sectionData = [];
+
                     if (uid) {
                         user = await userService.getUserById(uid);
+                        sectionData = await this.loadSectionData(section, uid);
                     }
-                    updateDashboardSection(section, user);
+                    updateDashboardSection(section, user, sectionData);
                 } catch (error) {
                     console.error("Error switching section:", error);
                 }
@@ -323,11 +348,13 @@ class Router {
                             if (result.success) {
                                 console.log('Room created:', result.id);
                                 closeModal();
-                                // Refresh dashboard if on rooms view
-                                // For now just alert, we will implement auto-refresh list next
                                 alert(`Room "${name}" created successfully!`);
-                                // Trigger refresh of rooms list (we'll implement this function later)
-                                // if (this.activeSection === 'rooms') this.refreshRooms(); 
+                                
+                                // Refresh rooms list immediately
+                                const rooms = await this.loadSectionData('rooms', uid);
+                                const user = await userService.getUserById(uid);
+                                updateDashboardSection('rooms', user, rooms);
+                                
                             } else {
                                 alert('Error creating room: ' + result.error);
                             }
@@ -417,10 +444,14 @@ class Router {
                         // Always navigate to dashboard if on login, OR if we are already on dashboard but need to update data
                         if (this.currentViewName === 'login') {
                             this.navigateTo('dashboard', { user: userProfile });
+                            // Initial load of rooms if landing on dashboard
+                            const rooms = await this.loadSectionData('rooms', user.uid);
+                            updateDashboardSection('rooms', userProfile, rooms);
                         } else if (this.currentViewName === 'dashboard') {
-                            // If we're already on dashboard, re-render to show correct user info if missing
-                            // OR we could just update the DOM directly, but re-rendering is safer for now
-                            this.navigateTo('dashboard', { user: userProfile }); 
+                            // If we're already on dashboard, re-render to show correct user info
+                            // AND load initial data (rooms)
+                            const rooms = await this.loadSectionData('rooms', user.uid);
+                            this.navigateTo('dashboard', { user: userProfile, data: rooms }); 
                         }
                     } catch (error) {
                         console.error("Error fetching user profile:", error);
