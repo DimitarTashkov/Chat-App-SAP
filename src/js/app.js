@@ -6,9 +6,11 @@
 // Import view functions
 import { renderLoginView } from './views/loginView.js';
 import { renderDashboardView, updateDashboardSection } from './views/dashboardView.js';
+import { renderCreateRoomModal } from './views/createRoomModal.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import { registerUser, loginUser, logoutUser } from './services/authService.js';
 import * as userService from './services/userService.js';
+import { createRoom } from './services/roomService.js';
 
 /**
  * Router Class
@@ -266,8 +268,80 @@ class Router {
         const createRoomBtn = document.getElementById('create-room-btn');
         if (createRoomBtn) {
             createRoomBtn.addEventListener('click', () => {
-                console.log('Create room clicked');
-                // TODO: Implement room creation modal
+                console.log('Opening create room modal');
+                // Render and append modal
+                const modalHtml = renderCreateRoomModal();
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // Add modal event listeners
+                const modal = document.getElementById('create-room-modal');
+                const closeBtn = document.getElementById('close-modal-btn');
+                const cancelBtn = document.getElementById('cancel-room-btn');
+                const form = document.getElementById('create-room-form');
+
+                const closeModal = () => {
+                    if (modal) modal.remove();
+                };
+
+                if (closeBtn) closeBtn.addEventListener('click', closeModal);
+                if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+                
+                // Close on click outside
+                if (modal) {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) closeModal();
+                    });
+                }
+
+                // Handle creation
+                if (form) {
+                    form.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const nameInput = document.getElementById('room-name');
+                        const typeInput = document.querySelector('input[name="room-type"]:checked');
+                        const submitBtn = document.getElementById('submit-room-btn');
+                        
+                        if (!nameInput || !typeInput) return;
+
+                        const name = nameInput.value;
+                        const type = typeInput.value;
+                        const uid = window.auth.currentUser?.uid;
+
+                        if (!uid) {
+                            alert('You must be logged in to create a room via Firebase.');
+                             // Fallback for demo/testing without full auth if needed, but best to enforce
+                            return; 
+                        }
+
+                        // Loading state
+                        const originalText = submitBtn.textContent;
+                        submitBtn.textContent = 'Creating...';
+                        submitBtn.disabled = true;
+
+                        try {
+                            const result = await createRoom(name, uid, type);
+                            if (result.success) {
+                                console.log('Room created:', result.id);
+                                closeModal();
+                                // Refresh dashboard if on rooms view
+                                // For now just alert, we will implement auto-refresh list next
+                                alert(`Room "${name}" created successfully!`);
+                                // Trigger refresh of rooms list (we'll implement this function later)
+                                // if (this.activeSection === 'rooms') this.refreshRooms(); 
+                            } else {
+                                alert('Error creating room: ' + result.error);
+                            }
+                        } catch (error) {
+                            console.error('Create room error:', error);
+                            alert('An unexpected error occurred.');
+                        } finally {
+                            if (submitBtn) { // check if modal still exists
+                                submitBtn.textContent = originalText;
+                                submitBtn.disabled = false;
+                            }
+                        }
+                    });
+                }
             });
         }
 
