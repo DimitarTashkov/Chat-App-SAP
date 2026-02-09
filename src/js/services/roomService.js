@@ -93,6 +93,45 @@ export async function getRooms(userId) {
 }
 
 /**
+ * Fetches all public rooms (excluding joined ones if needed)
+ * @returns {Promise<Array>}
+ */
+export async function getPublicRooms() {
+    try {
+        const db = window.db;
+        const roomsRef = collection(db, "rooms");
+        const q = query(
+            roomsRef, 
+            where("type", "==", "public"),
+            orderBy("name")
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const rooms = [];
+        querySnapshot.forEach((doc) => {
+            rooms.push({ id: doc.id, ...doc.data() });
+        });
+        
+        return rooms;
+    } catch (error) {
+        console.error("Error fetching public rooms:", error);
+        if (error.code === 'failed-precondition') {
+            // Fallback for missing index
+             const db = window.db;
+             const roomsRef = collection(db, "rooms");
+             const q = query(roomsRef, where("type", "==", "public"));
+             const querySnapshot = await getDocs(q);
+             const rooms = [];
+             querySnapshot.forEach((doc) => {
+                 rooms.push({ id: doc.id, ...doc.data() });
+             });
+             return rooms;
+        }
+        return [];
+    }
+}
+
+/**
  * Adds a user to a room.
  * @param {string} roomId 
  * @param {string} userId 

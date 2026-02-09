@@ -65,9 +65,14 @@ export function renderDashboardView(params = {}) {
                         ${activeSection === 'rooms' ? 'Rooms' : activeSection === 'friends' ? 'Friends' : 'Settings'}
                     </h3>
                     ${activeSection === 'rooms' ? `
-                        <button id="create-room-btn" class="btn-primary">
-                            + Create Room
-                        </button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button id="browse-rooms-btn" class="btn-secondary" style="background-color: #4f545c; color: white;">
+                                🔍 Browse
+                            </button>
+                            <button id="create-room-btn" class="btn-primary">
+                                + Create Room
+                            </button>
+                        </div>
                     ` : ''}
                 </header>
 
@@ -249,12 +254,14 @@ export function updateDashboardSection(section, user, data = []) {
     }
 
     // Show/hide create room button based on section
-    if (createRoomBtn) {
-        if (section === 'rooms') {
-            createRoomBtn.style.display = 'block';
-        } else {
-            createRoomBtn.style.display = 'none';
-        }
+    const browseRoomsBtn = document.getElementById('browse-rooms-btn');
+    
+    if (section === 'rooms') {
+        if (createRoomBtn) createRoomBtn.style.display = 'block';
+        if (browseRoomsBtn) browseRoomsBtn.style.display = 'block';
+    } else {
+        if (createRoomBtn) createRoomBtn.style.display = 'none';
+        if (browseRoomsBtn) browseRoomsBtn.style.display = 'none';
     }
 
     // Update active nav item
