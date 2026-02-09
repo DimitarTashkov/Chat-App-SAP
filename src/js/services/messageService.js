@@ -8,10 +8,54 @@ import {
     limit,
     doc,
     deleteDoc,
-    updateDoc
+    updateDoc,
+    getDoc
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
 export const messageService = {
+    /**
+     * Toggle a reaction on a message
+     * @param {string} roomId 
+     * @param {string} messageId 
+     * @param {string} userId 
+     * @param {string} emoji 
+     */
+    async toggleReaction(roomId, messageId, userId, emoji) {
+        const db = window.db;
+        if (!db) throw new Error("Firestore not initialized");
+
+        try {
+            const messageRef = doc(db, 'rooms', roomId, 'messages', messageId);
+            const messageSnap = await getDoc(messageRef);
+            
+            if (messageSnap.exists()) {
+                const data = messageSnap.data();
+                const reactions = data.reactions || {};
+                
+                let users = reactions[emoji] || [];
+                
+                if (users.includes(userId)) {
+                    // Remove reaction
+                    users = users.filter(id => id !== userId);
+                } else {
+                    // Add reaction
+                    users.push(userId);
+                }
+                
+                if (users.length > 0) {
+                    reactions[emoji] = users;
+                } else {
+                    delete reactions[emoji];
+                }
+
+                await updateDoc(messageRef, { reactions });
+            }
+        } catch (error) {
+            console.error("Error toggling reaction:", error);
+            throw error;
+        }
+    },
+
     /**
      * Send a message to a specific room
      * @param {string} roomId 

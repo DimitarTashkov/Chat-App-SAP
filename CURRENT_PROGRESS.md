@@ -27,7 +27,33 @@
 ##  Next Task
 
 **[13] Create chat room view**
-- Create src/js/views/chatRoomView.js
+- Created src/js/views/chatRoomView.js
+- Implemented basic render layout and message rendering.
+- **Files Changed**: src/js/views/chatRoomView.js
+
+### Phase 5: Messaging System
+
+**[14] Create message service module**
+- Created src/js/services/messageService.js.
+- Implemented sendMessage, getMessages listener, deleteMessage.
+- **Files Changed**: src/js/services/messageService.js
+
+**[15] Implement real-time message display**
+- Integrated message listener in app.js.
+- Implemented auto-scroll and dynamic updates.
+- **Files Changed**: src/js/app.js
+
+**[16] Add message input and send functionality**
+- Connected input form to messageService.
+- Implemented send logic with Enter key support.
+- **Files Changed**: src/js/app.js
+
+##  Next Task
+
+**[17] Implement message reactions**
+- Add reaction support to messageService.
+- Update chat interface to show/add reactions.
+
 - Design chat interface with message list and input
 - Display room name and member list
 - Add message input with send button

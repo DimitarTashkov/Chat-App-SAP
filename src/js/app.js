@@ -432,8 +432,9 @@ class Router {
             container.scrollTop = container.scrollHeight;
         });
 
-        // 3. Handle Message Actions (Delete) via Delegation
+        // 3. Handle Message Actions via Delegation
         container.addEventListener('click', async (e) => {
+            // A. Delete Message
             const deleteBtn = e.target.closest('.btn-delete');
             if (deleteBtn) {
                 const messageId = deleteBtn.dataset.messageId;
@@ -442,12 +443,62 @@ class Router {
                 if (confirm('Are you sure you want to delete this message?')) {
                     try {
                         await messageService.deleteMessage(roomId, messageId);
-                        // UI updates automatically via listener
                     } catch (error) {
                         console.error("Failed to delete message", error);
-                        alert("Failed to delete message.");
                     }
                 }
+                return;
+            }
+
+            // B. Open Emoji Picker
+            const addReactionBtn = e.target.closest('.btn-add-reaction');
+            if (addReactionBtn) {
+                const messageId = addReactionBtn.dataset.messageId;
+                const picker = document.getElementById(`emoji-picker-${messageId}`);
+                if (picker) {
+                    const isVisible = picker.style.display === 'block';
+                    // Hide all other pickers
+                    document.querySelectorAll('.emoji-picker-tooltip').forEach(el => el.style.display = 'none');
+                    // Toggle this one
+                    picker.style.display = isVisible ? 'none' : 'block';
+                }
+                return;
+            }
+
+            // C. Click on specific emoji (in picker)
+            const emojiBtn = e.target.closest('.emoji-btn');
+            if (emojiBtn) {
+                const messageId = emojiBtn.dataset.messageId;
+                const emoji = emojiBtn.dataset.emoji;
+                
+                try {
+                    await messageService.toggleReaction(roomId, messageId, user.uid, emoji);
+                    // Hide picker
+                    const picker = document.getElementById(`emoji-picker-${messageId}`);
+                    if (picker) picker.style.display = 'none';
+                } catch (error) {
+                    console.error("Failed to add reaction", error);
+                }
+                return;
+            }
+
+            // D. Click on existing reaction (toggle)
+            const reactionTag = e.target.closest('.reaction-tag');
+            if (reactionTag) {
+                const messageId = reactionTag.dataset.messageId;
+                const emoji = reactionTag.dataset.emoji;
+                
+                try {
+                    await messageService.toggleReaction(roomId, messageId, user.uid, emoji);
+                } catch (error) {
+                    console.error("Failed to toggle reaction", error);
+                }
+                return;
+            }
+            
+            // Close pickers if clicking elsewhere
+            if (!e.target.closest('.emoji-picker-tooltip') && !e.target.closest('.btn-add-reaction')) {
+                 document.querySelectorAll('.emoji-picker-tooltip').forEach(el => el.style.display = 'none');
             }
         });
 
