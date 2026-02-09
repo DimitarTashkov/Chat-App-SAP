@@ -2,20 +2,8 @@
 
 ##  Completed Tasks
 
-### Phase 1: Firebase Setup & Configuration
-- **[1] Set up Firebase project and configure credentials**
-- **[2] Import and initialize Firebase services**
-
-### Phase 2: Authentication System
-- **[3] Implement user registration functionality**
-- **[4] Implement user login functionality**
-- **[5] Implement logout functionality**
-- **[6] Add authentication state listener**
-- **[7] Connect auth forms to Firebase**
-
-### Phase 3: User Management
-- **[8] Create user service module**
-- **[9] Load and display current user profile**
+### Phase 1-3: Setup, Auth, User
+- Project Setup, Firebase Config, Login/Register, User Profile.
 
 ### Phase 4: Room Management
 
@@ -30,16 +18,31 @@
 - Implemented room creation logic.
 - **Files Changed**: src/js/views/createRoomModal.js, src/js/app.js, src/css/style.css
 
-##  Next Task
-
 **[12] Load and display rooms list**
-- Fetch rooms from Firestore where user is a member
-- Render rooms dynamically in dashboard
-- Show unread message counts
-- Handle empty state
-- **Why needed**: Real rooms from the database enable actual chat functionality.
+- Updated src/js/views/dashboardView.js to render dynamic room list.
+- Updated src/js/app.js to fetch rooms on load and creation.
+- Implemented fallback for missing Firestore index.
+- **Files Changed**: src/js/views/dashboardView.js, src/js/app.js
+
+##  Next Task
 
 **[13] Create chat room view**
 - Create src/js/views/chatRoomView.js
-- Design chat interface
-- **Why needed**: To display messages.
+- Design chat interface with message list and input
+- Display room name and member list
+- Add message input with send button
+- **Why needed**: Users need a dedicated view to see and send messages in a room.
+
+### Phase 5: Messaging System
+
+**[14] Create message service module**
+- Create src/js/services/messageService.js
+- Implement sendMessage(roomId, senderId, content) function
+- Implement getRoomMessages(roomId) function with real-time listener
+- **Why needed**: Centralizes all message-related operations.
+
+**[15] Implement real-time message display**
+- Set up Firestore real-time listener for room messages
+- Render messages as they arrive
+- Auto-scroll to newest message
+- **Why needed**: Real-time messaging is the core feature.
