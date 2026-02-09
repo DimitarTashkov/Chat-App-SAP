@@ -7,10 +7,14 @@
 import { renderLoginView } from './views/loginView.js';
 import { renderDashboardView, updateDashboardSection } from './views/dashboardView.js';
 import { renderCreateRoomModal } from './views/createRoomModal.js';
+import { renderChatRoomView } from './views/chatRoomView.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import { registerUser, loginUser, logoutUser } from './services/authService.js';
 import * as userService from './services/userService.js';
-import { createRoom, getRooms } from './services/roomService.js';
+import { createRoom, getRooms, getPublicRooms, joinRoom } from './services/roomService.js';
+import { messageService } from './services/messageService.js';
+import { renderMessage } from './views/chatRoomView.js';
+import { renderJoinRoomModal } from './views/joinRoomModal.js';
 
 /**
  * Router Class
@@ -22,10 +26,12 @@ class Router {
         this.views = new Map();
         this.currentView = null;
         this.currentViewName = null;
+        this.messageUnsubscribe = null;
         
         // Register views
         this.registerView('login', renderLoginView);
         this.registerView('dashboard', renderDashboardView);
+        this.registerView('chat', renderChatRoomView);
         
         // Initialize router
         this.init();
@@ -244,9 +250,45 @@ class Router {
             });
         });
 
+        // Event Delegation for Dynamic Content (Rooms, Friends)
+        const dashboardMain = document.querySelector('.dashboard-main');
+        if (dashboardMain) {
+            dashboardMain.addEventListener('click', async (e) => {
+                // Handle Room Click
+                const roomItem = e.target.closest('.room-item');
+                if (roomItem) {
+                    const roomId = roomItem.dataset.roomId;
+                    const roomName = roomItem.querySelector('.room-name').textContent;
+                    console.log('Opening room:', roomId, roomName);
+                    
+                    // Navigate to chat view (replacing the dashboard main content or full view?)
+                    // Design choice: Layout says Dashboard has sidebar. Chat typically replaces "Main Content".
+                    // But our Router replaces "Root".
+                    // To keep Sidebar, we have 2 options:
+                    // 1. ChatView includes Sidebar (duplicate code).
+                    // 2. Chat is a "Section" of Dashboard.
+                    // Let's go with Option 2: Render Chat INSIDE Dashboard Main Content.
+                    
+                    const uid = window.auth.currentUser?.uid;
+                    const user = await userService.getUserById(uid);
+                    
+                    // Mock room object for now (until we fetch full room details)
+                    const room = { id: roomId, name: roomName, type: 'public', members: [] }; // We need to fetch this
+                    
+                    const chatHtml = renderChatRoomView(room, user);
+                    const contentEl = document.querySelector('.main-content');
+                    if (contentEl) contentEl.innerHTML = chatHtml;
+                    
+                    // Attach chat listeners (send button, etc)
+                    // We might need a separate method for this since we are bypassing the Router for sub-views
+                    this.attachChatListeners(roomId, user);
+                }
+            });
+        }
+
         // Settings Form Handling (Event Delegation)
-        const dashboardMain = document.querySelector('.dashboard-main') || document.body;
-        dashboardMain.addEventListener('submit', async (e) => {
+        const dashboardMainForm = document.querySelector('.dashboard-main') || document.body;
+        dashboardMainForm.addEventListener('submit', async (e) => {
             if (e.target.id === 'settings-form') {
                 e.preventDefault();
                 const bio = document.getElementById('settings-bio').value;
@@ -289,90 +331,45 @@ class Router {
             });
         }
 
-        // Create room button
+        // Create Room Button
         const createRoomBtn = document.getElementById('create-room-btn');
         if (createRoomBtn) {
             createRoomBtn.addEventListener('click', () => {
                 console.log('Opening create room modal');
-                // Render and append modal
                 const modalHtml = renderCreateRoomModal();
                 document.body.insertAdjacentHTML('beforeend', modalHtml);
                 
-                // Add modal event listeners
-                const modal = document.getElementById('create-room-modal');
-                const closeBtn = document.getElementById('close-modal-btn');
-                const cancelBtn = document.getElementById('cancel-room-btn');
-                const form = document.getElementById('create-room-form');
-
-                const closeModal = () => {
-                    if (modal) modal.remove();
-                };
-
-                if (closeBtn) closeBtn.addEventListener('click', closeModal);
-                if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-                
-                // Close on click outside
-                if (modal) {
-                    modal.addEventListener('click', (e) => {
-                        if (e.target === modal) closeModal();
-                    });
-                }
-
-                // Handle creation
-                if (form) {
-                    form.addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const nameInput = document.getElementById('room-name');
-                        const typeInput = document.querySelector('input[name="room-type"]:checked');
-                        const submitBtn = document.getElementById('submit-room-btn');
-                        
-                        if (!nameInput || !typeInput) return;
-
-                        const name = nameInput.value;
-                        const type = typeInput.value;
-                        const uid = window.auth.currentUser?.uid;
-
-                        if (!uid) {
-                            alert('You must be logged in to create a room via Firebase.');
-                             // Fallback for demo/testing without full auth if needed, but best to enforce
-                            return; 
-                        }
-
-                        // Loading state
-                        const originalText = submitBtn.textContent;
-                        submitBtn.textContent = 'Creating...';
-                        submitBtn.disabled = true;
-
-                        try {
-                            const result = await createRoom(name, uid, type);
-                            if (result.success) {
-                                console.log('Room created:', result.id);
-                                closeModal();
-                                alert(`Room "${name}" created successfully!`);
-                                
-                                // Refresh rooms list immediately
-                                const rooms = await this.loadSectionData('rooms', uid);
-                                const user = await userService.getUserById(uid);
-                                updateDashboardSection('rooms', user, rooms);
-                                
-                            } else {
-                                alert('Error creating room: ' + result.error);
-                            }
-                        } catch (error) {
-                            console.error('Create room error:', error);
-                            alert('An unexpected error occurred.');
-                        } finally {
-                            if (submitBtn) { // check if modal still exists
-                                submitBtn.textContent = originalText;
-                                submitBtn.disabled = false;
-                            }
-                        }
-                    });
+                const uid = window.auth.currentUser?.uid;
+                if (uid) {
+                    this.attachCreateRoomListeners({ uid: uid });
                 }
             });
         }
 
-        // Room items
+        // Browse Rooms Button
+        const browseRoomsBtn = document.getElementById('browse-rooms-btn');
+        if (browseRoomsBtn) {
+            browseRoomsBtn.addEventListener('click', async () => {
+                const uid = window.auth.currentUser?.uid;
+                if (!uid) return;
+                
+                const btn = browseRoomsBtn;
+                const originalText = btn.textContent;
+                btn.textContent = '...';
+                
+                try {
+                    const publicRooms = await getPublicRooms();
+                    document.body.insertAdjacentHTML('beforeend', renderJoinRoomModal(publicRooms, uid));
+                    this.attachJoinRoomListeners({ uid: uid });
+                } catch (err) {
+                    console.error("Error loading public rooms", err);
+                } finally {
+                    btn.textContent = originalText;
+                }
+            });
+        }
+
+        // Event Delegation for Dynamic Content (Rooms, Friends)
         const roomItems = document.querySelectorAll('.room-item');
         roomItems.forEach(item => {
             item.addEventListener('click', () => {
@@ -396,6 +393,93 @@ class Router {
                 // TODO: Implement private chat navigation
             });
         });
+    }
+
+    /**
+     * Attach event listeners for chat view
+     * @param {string} roomId 
+     * @param {Object} user 
+     */
+    attachChatListeners(roomId, user) {
+        const form = document.getElementById('message-form');
+        const input = document.getElementById('message-input');
+        const container = document.getElementById('messages-container');
+
+        // 1. Cleanup previous listener if exists
+        if (this.messageUnsubscribe) {
+            this.messageUnsubscribe();
+            this.messageUnsubscribe = null;
+        }
+
+        // 2. Subscribe to messages
+        this.messageUnsubscribe = messageService.subscribeToMessages(roomId, (messages) => {
+            if (!container) return;
+            
+            // Clear current messages (simple re-render strategy)
+            container.innerHTML = '';
+            
+            // Allow just a bit of flex spacing at top if few messages
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="no-messages">No messages yet. Start the conversation!</div>';
+            }
+
+            messages.forEach(msg => {
+                const msgHtml = renderMessage(msg, user.uid);
+                container.insertAdjacentHTML('beforeend', msgHtml);
+            });
+
+            // Auto-scroll to bottom on new messages
+            container.scrollTop = container.scrollHeight;
+        });
+
+        // 3. Handle Message Actions (Delete) via Delegation
+        container.addEventListener('click', async (e) => {
+            const deleteBtn = e.target.closest('.btn-delete');
+            if (deleteBtn) {
+                const messageId = deleteBtn.dataset.messageId;
+                if (!messageId) return;
+
+                if (confirm('Are you sure you want to delete this message?')) {
+                    try {
+                        await messageService.deleteMessage(roomId, messageId);
+                        // UI updates automatically via listener
+                    } catch (error) {
+                        console.error("Failed to delete message", error);
+                        alert("Failed to delete message.");
+                    }
+                }
+            }
+        });
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const content = input.value.trim();
+                
+                if (!content) return;
+
+                // Clear input immediately for better UX
+                input.value = '';
+                input.style.height = 'auto'; // Reset height
+                input.focus();
+
+                try {
+                    await messageService.sendMessage(roomId, user.uid, user.username, content);
+                    // The onSnapshot listener will handle updating the UI
+                } catch (error) {
+                    console.error("Failed to send message", error);
+                    alert("Failed to send message. Please try again.");
+                }
+            });
+
+            // Handle Enter key to send (Shift+Enter for newline)
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    form.dispatchEvent(new Event('submit'));
+                }
+            });
+        }
     }
 
     /**
@@ -470,6 +554,125 @@ class Router {
 
         // Navigate to initial view
         this.navigateTo(hash);
+    }
+
+    /**
+     * Attach listeners for create room modal
+     * @param {Object} user 
+     */
+    attachCreateRoomListeners(user) {
+        const modal = document.getElementById('create-room-modal');
+        const closeBtn = document.getElementById('close-modal-btn');
+        const cancelBtn = document.getElementById('cancel-room-btn');
+        const form = document.getElementById('create-room-form');
+
+        const closeModal = () => {
+             if (modal) modal.remove();
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        
+        // Close on click outside
+        if (modal) {
+             modal.addEventListener('click', (e) => {
+                 if (e.target === modal) closeModal();
+             });
+        }
+
+        // Handle creation
+        if (form) {
+             form.addEventListener('submit', async (e) => {
+                 e.preventDefault();
+                 const nameInput = document.getElementById('room-name');
+                 const typeInput = document.querySelector('input[name="room-type"]:checked');
+                 const submitBtn = document.getElementById('submit-room-btn');
+                 
+                 if (!nameInput || !typeInput) return;
+
+                 const name = nameInput.value;
+                 const type = typeInput.value;
+                 const uid = user.uid;
+
+                 // Loading state
+                 const originalText = submitBtn.textContent;
+                 submitBtn.textContent = 'Creating...';
+                 submitBtn.disabled = true;
+
+                 try {
+                     const result = await createRoom(name, uid, type);
+                     if (result.success) {
+                         console.log('Room created:', result.id);
+                         closeModal();
+                         alert(`Room "${name}" created successfully!`);
+                         
+                         // Refresh rooms list immediately
+                         const rooms = await this.loadSectionData('rooms', uid);
+                         updateDashboardSection('rooms', user, rooms);
+                         
+                         // Re-attach listeners because content was replaced
+                         this.attachDashboardListeners();
+                     } else {
+                         alert('Failed to create room: ' + result.error);
+                     }
+                 } catch (error) {
+                     console.error("Error creating room:", error);
+                     alert('An error occurred.');
+                 } finally {
+                     if (submitBtn) {
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                     }
+                 }
+             });
+        }
+    }
+
+    /**
+     * Attach listeners for join room modal
+     * @param {Object} user 
+     */
+    attachJoinRoomListeners(user) {
+        const modal = document.getElementById('join-room-modal');
+        const closeBtn = document.getElementById('close-join-modal-btn');
+        const joinBtns = document.querySelectorAll('.btn-join-room');
+
+        const closeModal = () => {
+            if (modal) modal.remove();
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+
+        joinBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const roomId = btn.dataset.roomId;
+                const originalText = btn.textContent;
+                btn.textContent = 'Joining...';
+                btn.disabled = true;
+
+                try {
+                    await joinRoom(roomId, user.uid);
+                    closeModal();
+                    // Refresh room list
+                    const rooms = await this.loadSectionData('rooms', user.uid);
+                    updateDashboardSection('rooms', user, rooms);
+                    // Re-attach listeners because content was replaced
+                    this.attachDashboardListeners();
+                    alert("Joined room successfully!");
+                } catch (error) {
+                    console.error("Error joining room:", error);
+                    alert("Failed to join room.");
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            });
+        });
     }
 
     /**
