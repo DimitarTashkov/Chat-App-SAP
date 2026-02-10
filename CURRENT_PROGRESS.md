@@ -26,8 +26,31 @@
 
 ##  Next Task
 
-**[13] Create chat room view**
-- Created src/js/views/chatRoomView.js
+**[18] Friend Service Module**
+- Created `src/js/services/friendService.js` with full CRUD (Send, Accept, Reject, List).
+- Implemented denormalization for robust data fetching.
+
+**[19-20] Friend UI (List & Requests)**
+- Updated `dashboardView.js` to show Friends and Pending Requests.
+- Added "Add Friend" Modal.
+- Integrated friend actions (Accept/Reject/Add) in `app.js`.
+
+**[21] Private Chat View**
+- Created `src/js/views/privateChatView.js`.
+- Updated `roomService.js` to handle Direct Message (DM) room creation/fetching.
+- Updated `app.js` to open chat when clicking a friend.
+
+### Phase 7: User Presence
+
+**[22] Implement user presence tracking**
+- Create `src/js/services/presenceService.js`
+- Set user status to 'online' on login
+- Set user status to 'offline' on logout
+- Use Realtime Database `.info/connected` for reliable presence
+
+## Next Task
+
+**[22] Implement user presence tracking**
 - Implemented basic render layout and message rendering.
 - **Files Changed**: src/js/views/chatRoomView.js
 

@@ -8,10 +8,11 @@ import { renderLoginView } from './views/loginView.js';
 import { renderDashboardView, updateDashboardSection } from './views/dashboardView.js';
 import { renderCreateRoomModal } from './views/createRoomModal.js';
 import { renderChatRoomView } from './views/chatRoomView.js';
+import { renderPrivateChatView } from './views/privateChatView.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import { registerUser, loginUser, logoutUser } from './services/authService.js';
 import * as userService from './services/userService.js';
-import { createRoom, getRooms, getPublicRooms, joinRoom } from './services/roomService.js';
+import { createRoom, getRooms, getPublicRooms, joinRoom, getOrCreateDirectMessage } from './services/roomService.js';
 import { messageService } from './services/messageService.js';
 import { friendService } from './services/friendService.js';
 import { renderMessage } from './views/chatRoomView.js';
@@ -347,6 +348,38 @@ class Router {
                         console.error("Error rejecting request:", err);
                         btn.textContent = 'Reject';
                         btn.disabled = false;
+                    }
+                }
+
+                // Handle Friend Click (Private Chat)
+                const friendItem = e.target.closest('.friend-item');
+                // Ensure we aren't clicking an action button within the item
+                if (friendItem && !e.target.closest('.friend-actions')) {
+                    const friendId = friendItem.dataset.friendId;
+                    console.log('Opening private chat with:', friendId);
+
+                    try {
+                        // Show loading state if needed (or just wait)
+                        const contentEl = document.querySelector('.main-content');
+                        if (contentEl) contentEl.innerHTML = '<div class="loading-spinner"></div><div style="text-align:center; color:#ccc;">Setting up secure channel...</div>';
+
+                        const uid = window.auth.currentUser?.uid;
+                        const user = await userService.getUserById(uid);
+                        const friendUser = await userService.getUserById(friendId); // Fetch fresh details
+
+                        if (!user || !friendUser) throw new Error("Could not load user details");
+
+                        const result = await getOrCreateDirectMessage(user, friendUser);
+                        if (result.success) {
+                            const chatHtml = renderPrivateChatView(result.room, user, friendUser);
+                            if (contentEl) contentEl.innerHTML = chatHtml;
+                            this.attachChatListeners(result.room.id, user); // Helper to attach listeners
+                        } else {
+                            throw new Error(result.error);
+                        }
+                    } catch (err) {
+                        console.error("Error opening private chat:", err);
+                        alert("Could not open chat: " + err.message);
                     }
                 }
             });

@@ -5,6 +5,8 @@ import {
     where, 
     getDocs, 
     doc, 
+    getDoc,
+    setDoc,
     updateDoc, 
     arrayUnion, 
     arrayRemove,
@@ -42,6 +44,52 @@ export async function createRoom(name, createdBy, type = 'public') {
     } catch (error) {
         console.error("Error creating room:", error);
         return { success: false, error: error.message };
+    }
+}
+/**
+ * Get or create a direct message room between two users
+ * @param {object} currentUser 
+ * @param {object} otherUser - { id, username }
+ */
+export async function getOrCreateDirectMessage(currentUser, otherUser) {
+    const db = window.db;
+    if (!db) throw new Error("Firestore not initialized");
+
+    const uid1 = currentUser.uid < otherUser.id ? currentUser.uid : otherUser.id;
+    const uid2 = currentUser.uid < otherUser.id ? otherUser.id : currentUser.uid;
+    const roomId = `dm_${uid1}_${uid2}`;
+
+    const roomRef = doc(db, "rooms", roomId);
+
+    try {
+        const roomSnap = await getDoc(roomRef);
+
+        if (roomSnap.exists()) {
+            return { success: true, room: { id: roomId, ...roomSnap.data() } };
+        } else {
+            // Create new DM room
+            const roomData = {
+                id: roomId,
+                type: 'direct',
+                members: [currentUser.uid, otherUser.id],
+                memberDetails: { // Store names for display (denormalization)
+                    [currentUser.uid]: { username: currentUser.displayName || currentUser.username },
+                    [otherUser.id]: { username: otherUser.username }
+                },
+                createdAt: serverTimestamp(),
+                recentMessage: {
+                    content: 'Start of conversation',
+                    timestamp: serverTimestamp(),
+                    sentBy: 'system'
+                }
+            };
+
+            await setDoc(roomRef, roomData);
+            return { success: true, room: { id: roomId, ...roomData } };
+        }
+    } catch (error) {
+         console.error("Error getting/creating DM:", error);
+         return { success: false, error: error.message };
     }
 }
 
