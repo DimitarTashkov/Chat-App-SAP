@@ -1,122 +1,50 @@
 ﻿# Current Progress
 
-##  Completed Tasks
+## 📊 Status Overview
+**Current Phase:** Phase 7: User Presence
+**Next Task:** [22] Implement user presence tracking
 
-### Phase 1-3: Setup, Auth, User
-- Project Setup, Firebase Config, Login/Register, User Profile.
+## ✅ Completed Tasks
+
+### Phase 1-3: Foundation (Setup, Auth, User)
+- [x] **[1-2]** Firebase Project Setup & Config.
+- [x] **[3-7]** Authentication (Login, Register, Logout, Auth State).
+- [x] **[8-9]** User Service & Profile Display.
 
 ### Phase 4: Room Management
-
-**[10] Create room service module**
-- Created src/js/services/roomService.js
-- Implemented createRoom, getRooms, joinRoom, leaveRoom.
-- **Files Changed**: src/js/services/roomService.js
-
-**[11] Implement room creation modal**
-- Created src/js/views/createRoomModal.js
-- Connected to frontend in pp.js and style.css.
-- Implemented room creation logic.
-- **Files Changed**: src/js/views/createRoomModal.js, src/js/app.js, src/css/style.css
-
-**[12] Load and display rooms list**
-- Updated src/js/views/dashboardView.js to render dynamic room list.
-- Updated src/js/app.js to fetch rooms on load and creation.
-- Implemented fallback for missing Firestore index.
-- **Files Changed**: src/js/views/dashboardView.js, src/js/app.js
-
-##  Next Task
-
-**[18] Friend Service Module**
-- Created `src/js/services/friendService.js` with full CRUD (Send, Accept, Reject, List).
-- Implemented denormalization for robust data fetching.
-
-**[19-20] Friend UI (List & Requests)**
-- Updated `dashboardView.js` to show Friends and Pending Requests.
-- Added "Add Friend" Modal.
-- Integrated friend actions (Accept/Reject/Add) in `app.js`.
-
-**[21] Private Chat View**
-- Created `src/js/views/privateChatView.js`.
-- Updated `roomService.js` to handle Direct Message (DM) room creation/fetching.
-- Updated `app.js` to open chat when clicking a friend.
-
-### Phase 7: User Presence
-
-**[22] Implement user presence tracking**
-- Create `src/js/services/presenceService.js`
-- Set user status to 'online' on login
-- Set user status to 'offline' on logout
-- Use Realtime Database `.info/connected` for reliable presence
-
-## Next Task
-
-**[22] Implement user presence tracking**
-- Implemented basic render layout and message rendering.
-- **Files Changed**: src/js/views/chatRoomView.js
+- [x] **[10] Room Service Module**: Implemented CRUD for rooms.
+- [x] **[11] Room Creation**: Modal and logic for new public/private rooms.
+- [x] **[12] Room List**: Dynamic loading of joined rooms.
+- [x] **[13] Chat Room View**: UI for the chat interface.
 
 ### Phase 5: Messaging System
-
-**[14] Create message service module**
-- Created src/js/services/messageService.js.
-- Implemented sendMessage, getMessages listener, deleteMessage.
-- **Files Changed**: src/js/services/messageService.js
-
-**[15] Implement real-time message display**
-- Integrated message listener in app.js.
-- Implemented auto-scroll and dynamic updates.
-- **Files Changed**: src/js/app.js
-
-**[16] Add message input and send functionality**
-- Connected input form to messageService.
-- Implemented send logic with Enter key support.
-- **Files Changed**: src/js/app.js
-
-**[17] Implement message reactions**
-- Added toggleReaction to messageService.js.
-- Added Reaction UI and Picker in chatRoomView.js.
-- Integrated click listeners in app.js.
-- **Files Changed**: src/js/services/messageService.js, src/js/views/chatRoomView.js, src/js/app.js
+- [x] **[14] Message Service**: Firestore operations for messages.
+- [x] **[15] Real-time Display**: Live message updates via `onSnapshot`.
+- [x] **[16] Sending Messages**: Input handling and delivery.
+- [x] **[17] Reactions**: Emoji reaction system on messages.
 
 ### Phase 6: Friend System
+- [x] **[18] Friend Service**: Friend requests logic (send, accept, reject).
+- [x] **[19] Friends List**: Displaying friends and status (with denomarlization fix).
+- [x] **[20] Friend Request UI**: "Add Friend" modal & request management.
+- [x] **[21] Private Chats**: Direct messaging (1-on-1) utilizing shared chat infrastructure.
 
-**[18] Create friend service module**
-- Created src/js/services/friendService.js.
-- Implemented sendFriendRequest, getIncomingRequests, acceptFriendRequest, rejectFriendRequest, getFriends.
-- **Files Changed**: src/js/services/friendService.js
+## 🚧 Pending Tasks
 
-**[19] Load and display friends list**
-- Updated dashboardView to render friends and requests.
-- Integrated friendService in app.js.
-- **Files Changed**: src/js/views/dashboardView.js, src/js/app.js
+### Phase 7: User Presence
+- [ ] **[22] Implement user presence tracking**: Realtime DB `.info/connected` integration.
+- [ ] **[23] Display real-time online status**: Live UI updates for friend status.
 
-**[20] Implement friend request UI**
-- Created Add Friend Modal key.
-- Implemented user search and request sending.
-- Implemented Accept/Reject logic.
-- **Files Changed**: src/js/views/addFriendModal.js, src/js/app.js
+### Phase 8: Settings & Profile
+- [ ] **[24] Implement profile update functionality**: Edit Bio/Avatar.
+- [ ] **[25] Implement password change functionality**: Security settings.
 
-##  Next Task
+### Phase 9: Error Handling & UX
+- [ ] **[26] Global error handling**: Centralized error utilities.
+- [ ] **[27] Loading states**: Improved visual feedback (spinners).
+- [ ] **[28] Empty states**: Better placeholders for empty lists.
 
-**[21] Create private chat view**
-- Create src/js/views/privateChatView.js
+### Phase 10: Launch
+- [ ] **[29] Testing**: End-to-end verification.
+- [ ] **[30] Deployment**: Firebase Hosting.
 
-
-
-- Design chat interface with message list and input
-- Display room name and member list
-- Add message input with send button
-- **Why needed**: Users need a dedicated view to see and send messages in a room.
-
-### Phase 5: Messaging System
-
-**[14] Create message service module**
-- Create src/js/services/messageService.js
-- Implement sendMessage(roomId, senderId, content) function
-- Implement getRoomMessages(roomId) function with real-time listener
-- **Why needed**: Centralizes all message-related operations.
-
-**[15] Implement real-time message display**
-- Set up Firestore real-time listener for room messages
-- Render messages as they arrive
-- Auto-scroll to newest message
-- **Why needed**: Real-time messaging is the core feature.
