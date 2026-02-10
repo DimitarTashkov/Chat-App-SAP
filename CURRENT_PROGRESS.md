@@ -32,8 +32,10 @@
 ## 🚧 Pending Tasks
 
 ### Phase 7: User Presence
-- [ ] **[22] Implement user presence tracking**: Realtime DB `.info/connected` integration.
-- [ ] **[23] Display real-time online status**: Live UI updates for friend status.
+- [x] **[22] Implement user presence tracking**: Realtime DB `.info/connected` integration.
+- [x] **[23] Display real-time online status**: Live UI updates for friend status via `presenceService` subscriptions.
+
+## 🚧 Pending Tasks
 
 ### Phase 8: Settings & Profile
 - [ ] **[24] Implement profile update functionality**: Edit Bio/Avatar.

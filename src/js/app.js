@@ -18,6 +18,7 @@ import { friendService } from './services/friendService.js';
 import { renderMessage } from './views/chatRoomView.js';
 import { renderJoinRoomModal } from './views/joinRoomModal.js';
 import { renderAddFriendModal } from './views/addFriendModal.js';
+import { presenceService } from './services/presenceService.js';
 
 /**
  * Router Class
@@ -30,6 +31,7 @@ class Router {
         this.currentView = null;
         this.currentViewName = null;
         this.messageUnsubscribe = null;
+        this.presenceUnsubscribe = null;
         
         // Register views
         this.registerView('login', renderLoginView);
@@ -255,6 +257,29 @@ class Router {
                         sectionData = await this.loadSectionData(section, uid);
                     }
                     updateDashboardSection(section, user, sectionData);
+
+                    // Presence: Cleanup & Subscribe
+                    if (this.presenceUnsubscribe) {
+                        this.presenceUnsubscribe();
+                        this.presenceUnsubscribe = null;
+                    }
+
+                    if (section === 'friends' && sectionData.friends) {
+                        const friendIds = sectionData.friends.map(f => f.id);
+                        this.presenceUnsubscribe = presenceService.subscribeToFriendStatuses(friendIds, (friendId, status) => {
+                             const friendItem = document.querySelector(`.friend-item[data-friend-id="${friendId}"]`);
+                             if (friendItem) {
+                                 const statusEl = friendItem.querySelector('.friend-status');
+                                 if (statusEl) {
+                                     // Capitalize first letter
+                                     const displayStatus = status.charAt(0).toUpperCase() + status.slice(1);
+                                     statusEl.textContent = displayStatus;
+                                     statusEl.className = `friend-status ${status === 'online' ? 'status-online' : 'status-offline'}`;
+                                 }
+                             }
+                        });
+                    }
+
                 } catch (error) {
                     console.error("Error switching section:", error);
                 }
@@ -315,6 +340,27 @@ class Router {
                         const user = await userService.getUserById(uid);
                         
                         updateDashboardSection('friends', user, { friends, requests });
+                        
+                        // Resubscribe presence
+                        if (this.presenceUnsubscribe) {
+                            this.presenceUnsubscribe();
+                            this.presenceUnsubscribe = null;
+                        }
+                        if (friends) {
+                            const friendIds = friends.map(f => f.id);
+                            this.presenceUnsubscribe = presenceService.subscribeToFriendStatuses(friendIds, (friendId, status) => {
+                                 const friendItem = document.querySelector(`.friend-item[data-friend-id="${friendId}"]`);
+                                 if (friendItem) {
+                                     const statusEl = friendItem.querySelector('.friend-status');
+                                     if (statusEl) {
+                                         const displayStatus = status.charAt(0).toUpperCase() + status.slice(1);
+                                         statusEl.textContent = displayStatus;
+                                         statusEl.className = `friend-status ${status === 'online' ? 'status-online' : 'status-offline'}`;
+                                     }
+                                 }
+                            });
+                        }
+
                          // Re-attach logic for delegation and other elements
                          this.attachDashboardListeners();
                     } catch (err) {
@@ -423,10 +469,16 @@ class Router {
         // Logout button
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
+            logoutBtn.addEventListener('click', async () => {
                 console.log('Logout clicked');
-                // TODO: Implement Firebase logout
-                this.navigateTo('login');
+                const uid = window.auth.currentUser?.uid;
+                if (uid) {
+                    await presenceService.goOffline(uid);
+                }
+                
+                await logoutUser();
+                // Auth state listener handles navigation, but manual is cleaner UX sometimes
+                // this.navigateTo('login'); 
             });
         }
 
@@ -670,6 +722,9 @@ class Router {
                 if (user) {
                     console.log("User is signed in:", user.uid);
                     
+                    // Initialize Presence System
+                    presenceService.initializePresence(user.uid);
+
                     // Fetch full user profile
                     try {
                         let userProfile = await userService.getUserById(user.uid);
