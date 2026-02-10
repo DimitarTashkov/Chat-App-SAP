@@ -48,11 +48,23 @@
 - Implemented send logic with Enter key support.
 - **Files Changed**: src/js/app.js
 
+**[17] Implement message reactions**
+- Added toggleReaction to messageService.js.
+- Added Reaction UI and Picker in chatRoomView.js.
+- Integrated click listeners in app.js.
+- **Files Changed**: src/js/services/messageService.js, src/js/views/chatRoomView.js, src/js/app.js
+
+### Phase 6: Friend System
+
+**[18] Create friend service module**
+- Created src/js/services/friendService.js.
+- Implemented sendFriendRequest, getIncomingRequests, acceptFriendRequest, rejectFriendRequest, getFriends.
+- **Files Changed**: src/js/services/friendService.js
+
 ##  Next Task
 
-**[17] Implement message reactions**
-- Add reaction support to messageService.
-- Update chat interface to show/add reactions.
+**[19] Load and display friends list**
+
 
 - Design chat interface with message list and input
 - Display room name and member list
