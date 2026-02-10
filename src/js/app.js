@@ -13,8 +13,10 @@ import { registerUser, loginUser, logoutUser } from './services/authService.js';
 import * as userService from './services/userService.js';
 import { createRoom, getRooms, getPublicRooms, joinRoom } from './services/roomService.js';
 import { messageService } from './services/messageService.js';
+import { friendService } from './services/friendService.js';
 import { renderMessage } from './views/chatRoomView.js';
 import { renderJoinRoomModal } from './views/joinRoomModal.js';
+import { renderAddFriendModal } from './views/addFriendModal.js';
 
 /**
  * Router Class
@@ -214,7 +216,15 @@ class Router {
                     console.error("Error loading rooms:", error);
                     return [];
                 }
-            // Add other cases here (friends, etc)
+            case 'friends':
+                try {
+                    const friends = await friendService.getFriends(uid);
+                    const requests = await friendService.getIncomingRequests(uid);
+                    return { friends, requests };
+                } catch (error) {
+                    console.error("Error loading friends:", error);
+                    return { friends: [], requests: [] };
+                }
             default:
                 return [];
         }
@@ -282,6 +292,62 @@ class Router {
                     // Attach chat listeners (send button, etc)
                     // We might need a separate method for this since we are bypassing the Router for sub-views
                     this.attachChatListeners(roomId, user);
+                }
+
+                // Handle Accept Request
+                const acceptBtn = e.target.closest('.btn-accept-req');
+                if (acceptBtn) {
+                    const reqId = acceptBtn.dataset.reqId;
+                    const fromId = acceptBtn.dataset.fromId;
+                    const btn = acceptBtn;
+                    
+                    btn.textContent = '...';
+                    btn.disabled = true;
+
+                    try {
+                        const uid = window.auth.currentUser?.uid;
+                        await friendService.acceptFriendRequest(reqId, fromId, uid);
+                        
+                        // Refresh
+                        const friends = await friendService.getFriends(uid);
+                        const requests = await friendService.getIncomingRequests(uid);
+                        const user = await userService.getUserById(uid);
+                        
+                        updateDashboardSection('friends', user, { friends, requests });
+                         // Re-attach logic for delegation and other elements
+                         this.attachDashboardListeners();
+                    } catch (err) {
+                        console.error("Error accepting request:", err);
+                        alert("Failed to accept request.");
+                        btn.textContent = 'Accept';
+                        btn.disabled = false;
+                    }
+                }
+
+                // Handle Reject Request
+                const rejectBtn = e.target.closest('.btn-reject-req');
+                if (rejectBtn) {
+                    const reqId = rejectBtn.dataset.reqId;
+                    const btn = rejectBtn;
+                    
+                    btn.textContent = '...';
+                    btn.disabled = true;
+
+                    try {
+                        await friendService.rejectFriendRequest(reqId);
+                        
+                        const uid = window.auth.currentUser?.uid;
+                        const friends = await friendService.getFriends(uid);
+                        const requests = await friendService.getIncomingRequests(uid);
+                        const user = await userService.getUserById(uid);
+                        
+                        updateDashboardSection('friends', user, { friends, requests });
+                        this.attachDashboardListeners();
+                    } catch (err) {
+                        console.error("Error rejecting request:", err);
+                        btn.textContent = 'Reject';
+                        btn.disabled = false;
+                    }
                 }
             });
         }
@@ -366,6 +432,17 @@ class Router {
                 } finally {
                     btn.textContent = originalText;
                 }
+            });
+        }
+        
+        // Add Friend Button
+        const addFriendBtn = document.getElementById('add-friend-btn');
+        if (addFriendBtn) {
+            addFriendBtn.addEventListener('click', () => {
+                const uid = window.auth.currentUser?.uid;
+                if (!uid) return;
+                document.body.insertAdjacentHTML('beforeend', renderAddFriendModal());
+                this.attachAddFriendListeners({ uid: uid });
             });
         }
 
@@ -676,6 +753,98 @@ class Router {
                      }
                  }
              });
+        }
+    }
+
+    /**
+     * Attach listeners for add friend modal
+     * @param {Object} user 
+     */
+    attachAddFriendListeners(user) {
+        const modal = document.getElementById('add-friend-modal');
+        const closeBtn = document.getElementById('close-add-friend-btn');
+        const form = document.getElementById('add-friend-form');
+        const errorEl = document.getElementById('add-friend-error');
+        const submitBtn = document.getElementById('send-request-btn');
+
+        const closeModal = () => {
+            if (modal) modal.remove();
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const usernameInput = document.getElementById('friend-username');
+                if (!usernameInput) return;
+
+                const targetUsername = usernameInput.value.trim();
+                const currentUsername = user.username || window.currentUserData?.username;
+
+                if (!targetUsername) return;
+
+                if (targetUsername === currentUsername) {
+                    errorEl.textContent = "You cannot add yourself.";
+                    errorEl.style.display = 'block';
+                    return;
+                }
+
+                // Initial UI reset
+                errorEl.style.display = 'none';
+                const originalText = submitBtn.textContent;
+                submitBtn.textContent = 'Sending...';
+                submitBtn.disabled = true;
+
+                try {
+                    // Inline query to find user ID by username
+                    // This is a bit hacky to do inline but efficient for now
+                    const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js');
+                    const db = window.db; 
+                    
+                    const usersRef = collection(db, 'users');
+                    const q = query(usersRef, where('username', '==', targetUsername));
+                    const snapshot = await getDocs(q);
+
+                    if (snapshot.empty) {
+                        errorEl.textContent = "User not found.";
+                        errorEl.style.display = 'block';
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    const targetUserDoc = snapshot.docs[0];
+                    const targetUserId = targetUserDoc.id;
+
+                    // Send Request
+                    const result = await friendService.sendFriendRequest(user.uid, targetUserId);
+                    
+                    if (result.success) {
+                        closeModal();
+                        alert(`Friend request sent to ${targetUsername}!`);
+                    } else {
+                        errorEl.textContent = result.error || "Failed to send request.";
+                        errorEl.style.display = 'block';
+                    }
+
+                } catch (error) {
+                    console.error("Error sending friend request:", error);
+                    errorEl.textContent = "An error occurred.";
+                    errorEl.style.display = 'block';
+                } finally {
+                    if (submitBtn && document.body.contains(submitBtn)) { 
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                    }
+                }
+            });
         }
     }
 

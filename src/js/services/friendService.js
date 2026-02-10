@@ -51,9 +51,21 @@ export const friendService = {
             }
 
             // 3. Create Request
+            // Fetch sender details to embed (Denormalization)
+            const senderRef = doc(db, 'users', fromUserId);
+            let senderData = {};
+            try {
+                const senderSnap = await getDoc(senderRef);
+                if (senderSnap.exists()) senderData = senderSnap.data();
+            } catch (e) {
+                console.warn("Could not fetch sender details:", e);
+            }
+
             await addDoc(requestsRef, {
                 from: fromUserId,
                 to: toUserId,
+                senderUsername: senderData.username || 'Unknown',
+                senderEmail: senderData.email || '',
                 status: 'pending',
                 timestamp: serverTimestamp()
             });
@@ -86,10 +98,24 @@ export const friendService = {
             
             for (const docSnap of snapshot.docs) {
                 const reqData = docSnap.data();
-                // Fetch sender info for display
-                const senderRef = doc(db, 'users', reqData.from);
-                const senderSnap = await getDoc(senderRef);
-                const senderData = senderSnap.exists() ? senderSnap.data() : { username: 'Unknown' };
+                
+                // Use embedded data if available, else fetch
+                let senderData = { 
+                    username: reqData.senderUsername || 'Unknown',
+                    email: reqData.senderEmail || ''
+                };
+
+                if (!reqData.senderUsername) {
+                    try {
+                        const senderRef = doc(db, 'users', reqData.from);
+                        const senderSnap = await getDoc(senderRef);
+                        if (senderSnap.exists()) {
+                            senderData = senderSnap.data();
+                        }
+                    } catch (e) {
+                         console.warn("Could not fetch sender profile:", e);
+                    }
+                }
 
                 requests.push({
                     id: docSnap.id,
@@ -101,7 +127,6 @@ export const friendService = {
             return requests;
         } catch (error) {
             console.error("Error fetching requests:", error);
-            // Fallback for missing index if any
             if (error.code === 'failed-precondition') return [];
             throw error;
         }
@@ -122,18 +147,55 @@ export const friendService = {
             const requestRef = doc(db, 'friendRequests', requestId);
             await updateDoc(requestRef, { status: 'accepted' });
 
+            // Fetch details for denormalization
+            let toUserData = { username: 'Friend' }; // Defaults
+            let fromUserData = { username: 'Friend' };
+
+            // Fetch 'toUser' (Current User) - Should succeed
+            try {
+                const toUserSnap = await getDoc(doc(db, 'users', toUserId));
+                if (toUserSnap.exists()) toUserData = toUserSnap.data();
+            } catch (e) { console.warn("Could not fetch own profile:", e); }
+
+            // Fetch 'fromUser' (Sender) or use existing knowledge if passed? 
+            // We'll try to fetch.
+            try {
+                const fromUserSnap = await getDoc(doc(db, 'users', fromUserId));
+                if (fromUserSnap.exists()) fromUserData = fromUserSnap.data();
+            } catch (e) { 
+                console.warn("Could not fetch sender profile for friend doc:", e);
+                // Maybe we can get it from the request doc if we read it? 
+                // But we don't have it here. rely on fallback.
+            }
+
             // 2. Add to both users' friends subcollection
             const user1FriendRef = doc(db, 'users', toUserId, 'friends', fromUserId);
             const user2FriendRef = doc(db, 'users', fromUserId, 'friends', toUserId);
 
-            // Fetch basic info to store in friend doc (snapshot)
-            // or just store timestamp and fetch detail on load. 
-            // Storing basic detail helps prevent N+1 queries later but needs syncing.
-            // Let's just store timestamp for now and ID is key.
-            const friendData = { since: serverTimestamp() };
+            const friendDataForUser1 = { // Stored in toUser's list (User1 is toUser)
+                since: serverTimestamp(),
+                username: fromUserData.username,
+                email: fromUserData.email,
+                avatar: fromUserData.avatar || null
+            };
+            
+            const friendDataForUser2 = { // Stored in fromUser's list
+                since: serverTimestamp(),
+                username: toUserData.username,
+                email: toUserData.email,
+                avatar: toUserData.avatar || null
+            };
 
-            await setDoc(user1FriendRef, friendData);
-            await setDoc(user2FriendRef, friendData);
+            // Write own friend list (Should succeed)
+            await setDoc(user1FriendRef, friendDataForUser1);
+
+            // Write other's friend list (Might fail due to permissions)
+            try {
+                await setDoc(user2FriendRef, friendDataForUser2);
+            } catch (e) {
+                console.warn("Could not update other user's friend list (Permission issue likely):", e);
+                // This implies the other user won't see us in their list immediately.
+            }
 
             return { success: true };
         } catch (error) {
@@ -173,23 +235,45 @@ export const friendService = {
             const friendsRef = collection(db, 'users', userId, 'friends');
             const snapshot = await getDocs(friendsRef);
             
-            const friends = [];
-            for (const docSnap of snapshot.docs) {
+            const friendsPromise = snapshot.docs.map(async (docSnap) => {
                 const friendId = docSnap.id;
-                // Fetch full friend profile
-                const friendProfileRef = doc(db, 'users', friendId);
-                const friendProfileSnap = await getDoc(friendProfileRef);
-                
-                if (friendProfileSnap.exists()) {
-                    friends.push({
-                        id: friendId,
-                        ...friendProfileSnap.data()
-                    });
+                const denormalizedData = docSnap.data();
+
+                // Always try to fetch fresh status/profile from the main Users collection
+                try {
+                    const friendProfileRef = doc(db, 'users', friendId);
+                    const friendProfileSnap = await getDoc(friendProfileRef);
+                    
+                    if (friendProfileSnap.exists()) {
+                         const profileData = friendProfileSnap.data();
+                         return {
+                             id: friendId,
+                             ...denormalizedData, // Keep local notes/timestamps if we have them
+                             ...profileData,      // Overwrite with live data (status, new avatar, etc)
+                             // Ensure we don't overwrite the friendship 'since' timestamp with user 'createdAt'
+                             since: denormalizedData.since || profileData.createdAt
+                         };
+                    }
+                } catch (e) {
+                    console.warn(`Could not fetch live profile for ${friendId}`, e);
                 }
-            }
+
+                // Fallback to denormalized data if fetch fails
+                return {
+                    id: friendId,
+                    username: 'Unknown User',
+                    status: 'offline', // Default to offline if we can't reach them
+                    ...denormalizedData
+                };
+            });
+
+            const friends = await Promise.all(friendsPromise);
             return friends;
         } catch (error) {
             console.error("Error fetching friends:", error);
+            if (error.code === 'permission-denied') {
+                console.error("ACTION REQUIRED: Update Firestore Security Rules to allow access to 'users/{id}/friends'. See firestore.rules file.");
+            }
             return [];
         }
     }

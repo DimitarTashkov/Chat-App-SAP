@@ -61,9 +61,22 @@
 - Implemented sendFriendRequest, getIncomingRequests, acceptFriendRequest, rejectFriendRequest, getFriends.
 - **Files Changed**: src/js/services/friendService.js
 
+**[19] Load and display friends list**
+- Updated dashboardView to render friends and requests.
+- Integrated friendService in app.js.
+- **Files Changed**: src/js/views/dashboardView.js, src/js/app.js
+
+**[20] Implement friend request UI**
+- Created Add Friend Modal key.
+- Implemented user search and request sending.
+- Implemented Accept/Reject logic.
+- **Files Changed**: src/js/views/addFriendModal.js, src/js/app.js
+
 ##  Next Task
 
-**[19] Load and display friends list**
+**[21] Create private chat view**
+- Create src/js/views/privateChatView.js
+
 
 
 - Design chat interface with message list and input

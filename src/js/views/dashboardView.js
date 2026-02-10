@@ -64,16 +64,17 @@ export function renderDashboardView(params = {}) {
                     <h3 style="color: white; margin: 0;">
                         ${activeSection === 'rooms' ? 'Rooms' : activeSection === 'friends' ? 'Friends' : 'Settings'}
                     </h3>
-                    ${activeSection === 'rooms' ? `
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button id="browse-rooms-btn" class="btn-secondary" style="background-color: #4f545c; color: white;">
-                                🔍 Browse
-                            </button>
-                            <button id="create-room-btn" class="btn-primary">
-                                + Create Room
-                            </button>
-                        </div>
-                    ` : ''}
+                    <div style="display: flex; gap: 0.5rem;" id="header-actions">
+                        <button id="browse-rooms-btn" class="btn-secondary" style="background-color: #4f545c; color: white; display: ${activeSection === 'rooms' ? 'block' : 'none'}">
+                            🔍 Browse
+                        </button>
+                        <button id="create-room-btn" class="btn-primary" style="display: ${activeSection === 'rooms' ? 'block' : 'none'}">
+                            + Create Room
+                        </button>
+                        <button id="add-friend-btn" class="btn-primary" style="background-color: #2d7d46; display: ${activeSection === 'friends' ? 'block' : 'none'}">
+                            Add Friend
+                        </button>
+                    </div>
                 </header>
 
                 <!-- Content -->
@@ -97,7 +98,7 @@ function renderDashboardContent(section, user, data = []) {
         case 'rooms':
             return renderRoomsContent(data);
         case 'friends':
-            return renderFriendsContent();
+            return renderFriendsContent(data);
         case 'settings':
             return renderSettingsContent(user);
         default:
@@ -137,43 +138,92 @@ function renderRoomsContent(rooms = []) {
 
 /**
  * Render friends content
+ * @param {Object} data - { friends: Array, requests: Array }
  * @returns {string} HTML string for friends section
  */
-function renderFriendsContent() {
-    return `
-        <div class="friend-list">
-            <!-- Online friends -->
-            <div style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.5rem; padding: 0 0.5rem;">
-                ONLINE — 2
+function renderFriendsContent(data = { friends: [], requests: [] }) {
+    const friends = data.friends || [];
+    const requests = data.requests || [];
+    
+    if (friends.length === 0 && requests.length === 0) {
+        return `
+            <div class="empty-state">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">👋</div>
+                <h3 style="color: white; margin-bottom: 0.5rem;">No Friends Yet</h3>
+                <p style="color: #b9bbbe; text-align: center;">Add friends to start private conversations!</p>
             </div>
-            <div class="friend-item" data-friend-id="friend1">
-                <div class="friend-avatar">A</div>
-                <div class="friend-info">
-                    <div class="friend-name">Alice</div>
-                    <div class="friend-status status-online">Online</div>
-                </div>
-            </div>
-            <div class="friend-item" data-friend-id="friend2">
-                <div class="friend-avatar">B</div>
-                <div class="friend-info">
-                    <div class="friend-name">Bob</div>
-                    <div class="friend-status status-online">Online</div>
-                </div>
-            </div>
+        `;
+    }
 
-            <!-- Offline friends -->
-            <div style="color: #b9bbbe; font-size: 0.875rem; margin: 1rem 0 0.5rem 0; padding: 0 0.5rem;">
-                OFFLINE — 1
+    let html = '<div class="friend-list" style="padding: 1rem;">';
+
+    // Pending Requests Section
+    if (requests.length > 0) {
+        html += `
+            <div style="margin-bottom: 2rem;">
+                <h4 style="color: #b9bbbe; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 1rem;">
+                    Pending Requests — ${requests.length}
+                </h4>
+                ${requests.map(req => `
+                    <div class="request-item" style="
+                        display: flex; align-items: center; justify-content: space-between;
+                        padding: 0.75rem; background: #2f3136; border-radius: 4px; margin-bottom: 0.5rem;
+                        border: 1px solid #202225;
+                    ">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.9rem;">
+                                ${req.sender.username.charAt(0).toUpperCase()}
+                            </div>
+                            <span style="color: white; font-weight: 500;">${req.sender.username}</span>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn-accept-req" data-req-id="${req.id}" data-from-id="${req.from}" style="
+                                background: #2d7d46; color: white; border: none; padding: 4px 12px;
+                                border-radius: 3px; cursor: pointer; font-size: 0.8rem;
+                            ">Accept</button>
+                            <button class="btn-reject-req" data-req-id="${req.id}" style="
+                                background: #ed4245; color: white; border: none; padding: 4px 12px;
+                                border-radius: 3px; cursor: pointer; font-size: 0.8rem;
+                            ">Reject</button>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-            <div class="friend-item" data-friend-id="friend3">
-                <div class="friend-avatar" style="background-color: #747f8d;">C</div>
+            <div style="height: 1px; background: #3f4147; margin-bottom: 2rem;"></div>
+        `;
+    }
+
+    // Friends List Section
+    html += `
+        <h4 style="color: #b9bbbe; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 1rem;">
+            All Friends — ${friends.length}
+        </h4>
+        ${friends.map(friend => `
+            <div class="friend-item" data-friend-id="${friend.id}" style="
+                cursor: pointer; padding: 0.5rem; border-radius: 4px;
+            ">
+                <div class="friend-avatar" style="
+                    background-color: ${friend.photoURL ? 'transparent' : '#5865f2'};
+                ">
+                    ${friend.photoURL 
+                        ? `<img src="${friend.photoURL}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` 
+                        : friend.username.charAt(0).toUpperCase()}
+                </div>
                 <div class="friend-info">
-                    <div class="friend-name">Charlie</div>
-                    <div class="friend-status status-offline">Offline</div>
+                    <div class="friend-name">${friend.username}</div>
+                    <div class="friend-status ${friend.status && friend.status.toLowerCase() === 'online' ? 'status-online' : 'status-offline'}">
+                        ${friend.status && friend.status.toLowerCase() === 'online' ? 'Online' : 'Offline'}
+                    </div>
+                </div>
+                <div class="friend-actions">
+                    <span style="font-size: 1.2rem; color: #b9bbbe;">💬</span>
                 </div>
             </div>
-        </div>
+        `).join('')}
     `;
+
+    html += '</div>';
+    return html;
 }
 
 /**
@@ -255,13 +305,20 @@ export function updateDashboardSection(section, user, data = []) {
 
     // Show/hide create room button based on section
     const browseRoomsBtn = document.getElementById('browse-rooms-btn');
+    const addFriendBtn = document.getElementById('add-friend-btn');
     
     if (section === 'rooms') {
         if (createRoomBtn) createRoomBtn.style.display = 'block';
         if (browseRoomsBtn) browseRoomsBtn.style.display = 'block';
+        if (addFriendBtn) addFriendBtn.style.display = 'none';
+    } else if (section === 'friends') {
+        if (createRoomBtn) createRoomBtn.style.display = 'none';
+        if (browseRoomsBtn) browseRoomsBtn.style.display = 'none';
+        if (addFriendBtn) addFriendBtn.style.display = 'block';
     } else {
         if (createRoomBtn) createRoomBtn.style.display = 'none';
         if (browseRoomsBtn) browseRoomsBtn.style.display = 'none';
+        if (addFriendBtn) addFriendBtn.style.display = 'none';
     }
 
     // Update active nav item
