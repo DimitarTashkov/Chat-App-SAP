@@ -232,13 +232,26 @@ function renderFriendsContent(data = { friends: [], requests: [] }) {
  * @returns {string} HTML string for settings section
  */
 function renderSettingsContent(user) {
-    if (!user) user = { username: '', email: '', bio: '', status: 'online' };
-    
+    if (!user) user = { username: '', email: '', bio: '', status: 'online', photoURL: '' };
+
     return `
         <div class="card" style="max-width: 600px;">
             <h3 style="color: white; margin-bottom: 1.5rem;">Account Settings</h3>
-            
+
             <form id="settings-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Avatar Preview -->
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                    <div id="settings-avatar-preview" style="width: 64px; height: 64px; border-radius: 50%; background-color: #5865f2; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; font-weight: 600; overflow: hidden;">
+                        ${user.photoURL
+                            ? `<img src="${user.photoURL}" alt="${user.username}" style="width: 100%; height: 100%; object-fit: cover;">`
+                            : (user.username || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div style="color: white; font-weight: 500;">${user.username || 'User'}</div>
+                        <div style="color: #72767d; font-size: 0.8rem;">${user.email || ''}</div>
+                    </div>
+                </div>
+
                 <div>
                     <label for="settings-username" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
                         Username
@@ -246,12 +259,20 @@ function renderSettingsContent(user) {
                     <input type="text" id="settings-username" value="${user.username || ''}" disabled style="cursor: not-allowed; opacity: 0.7;">
                     <small style="color: #72767d; font-size: 0.75rem;">Username cannot be changed currently.</small>
                 </div>
-                
+
                 <div>
                     <label for="settings-email" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
                         Email
                     </label>
                     <input type="email" id="settings-email" value="${user.email || ''}" disabled style="cursor: not-allowed; opacity: 0.7;">
+                </div>
+
+                <div>
+                    <label for="settings-avatar" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                        Avatar URL
+                    </label>
+                    <input type="text" id="settings-avatar" value="${user.photoURL || ''}" placeholder="https://example.com/avatar.png">
+                    <small style="color: #72767d; font-size: 0.75rem;">Enter a URL for your profile picture.</small>
                 </div>
 
                 <div>
@@ -273,11 +294,48 @@ function renderSettingsContent(user) {
                     </select>
                 </div>
 
+                <div id="settings-feedback" style="display: none; padding: 0.75rem; border-radius: 4px; font-size: 0.875rem;"></div>
+
                 <div style="margin-top: 1rem; display: flex; gap: 1rem;">
                     <button type="submit" class="btn-primary" id="save-settings-btn">
                         Save Changes
                     </button>
-                    <!-- Future: Change Password Button -->
+                </div>
+            </form>
+        </div>
+
+        <!-- Password Change Section -->
+        <div class="card" style="max-width: 600px; margin-top: 1.5rem;">
+            <h3 style="color: white; margin-bottom: 1.5rem;">Change Password</h3>
+
+            <form id="password-change-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label for="current-password" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                        Current Password
+                    </label>
+                    <input type="password" id="current-password" placeholder="Enter current password">
+                </div>
+
+                <div>
+                    <label for="new-password" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                        New Password
+                    </label>
+                    <input type="password" id="new-password" placeholder="Enter new password (min. 6 characters)">
+                </div>
+
+                <div>
+                    <label for="confirm-password" style="color: #b9bbbe; font-size: 0.875rem; margin-bottom: 0.25rem; display: block;">
+                        Confirm New Password
+                    </label>
+                    <input type="password" id="confirm-password" placeholder="Confirm new password">
+                </div>
+
+                <div id="password-feedback" style="display: none; padding: 0.75rem; border-radius: 4px; font-size: 0.875rem;"></div>
+
+                <div style="margin-top: 1rem;">
+                    <button type="submit" class="btn-danger" id="change-password-btn">
+                        Change Password
+                    </button>
                 </div>
             </form>
         </div>

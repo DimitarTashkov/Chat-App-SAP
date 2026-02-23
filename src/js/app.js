@@ -9,7 +9,7 @@ import { renderDashboardView, updateDashboardSection } from './views/dashboardVi
 import { renderCreateRoomModal } from './views/createRoomModal.js';
 import { renderChatRoomView } from './views/chatRoomView.js';
 import { renderPrivateChatView } from './views/privateChatView.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
+import { onAuthStateChanged, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import { registerUser, loginUser, logoutUser } from './services/authService.js';
 import * as userService from './services/userService.js';
 import { createRoom, getRooms, getPublicRooms, joinRoom, getOrCreateDirectMessage } from './services/roomService.js';
@@ -19,6 +19,7 @@ import { renderMessage } from './views/chatRoomView.js';
 import { renderJoinRoomModal } from './views/joinRoomModal.js';
 import { renderAddFriendModal } from './views/addFriendModal.js';
 import { presenceService } from './services/presenceService.js';
+import { toast } from './utils/toast.js';
 
 /**
  * Router Class
@@ -157,12 +158,12 @@ class Router {
 
                 // Basic validation
                 if (!email || !password) {
-                    alert('Please fill in all fields');
+                    toast.warning('Please fill in all fields.');
                     return;
                 }
                 
                 if (!isLogin && !username) {
-                    alert('Please enter a username');
+                    toast.warning('Please enter a username.');
                     return;
                 }
 
@@ -187,14 +188,14 @@ class Router {
                         this.navigateTo('dashboard');
                     } else {
                         console.error('Auth error:', result?.error);
-                        alert('Auth failed: ' + (result?.error || 'Unknown error'));
+                        toast.error('Auth failed: ' + (result?.error || 'Unknown error'));
                         // Reset button
                         submitBtn.textContent = originalBtnText;
                         submitBtn.disabled = false;
                     }
                 } catch (error) {
                     console.error('Unexpected auth error:', error);
-                    alert('An unexpected error occurred. Please try again.');
+                    toast.error('An unexpected error occurred. Please try again.');
                     // Reset button
                     submitBtn.textContent = originalBtnText;
                     submitBtn.disabled = false;
@@ -365,7 +366,7 @@ class Router {
                          this.attachDashboardListeners();
                     } catch (err) {
                         console.error("Error accepting request:", err);
-                        alert("Failed to accept request.");
+                        toast.error("Failed to accept request.");
                         btn.textContent = 'Accept';
                         btn.disabled = false;
                     }
@@ -425,7 +426,7 @@ class Router {
                         }
                     } catch (err) {
                         console.error("Error opening private chat:", err);
-                        alert("Could not open chat: " + err.message);
+                        toast.error("Could not open chat: " + err.message);
                     }
                 }
             });
@@ -438,8 +439,10 @@ class Router {
                 e.preventDefault();
                 const bio = document.getElementById('settings-bio').value;
                 const status = document.getElementById('settings-status').value;
+                const avatarUrl = document.getElementById('settings-avatar')?.value.trim();
                 const saveBtn = document.getElementById('save-settings-btn');
-                
+                const feedback = document.getElementById('settings-feedback');
+
                 if (saveBtn) {
                      const originalText = saveBtn.textContent;
                      saveBtn.textContent = 'Saving...';
@@ -448,20 +451,138 @@ class Router {
                      try {
                          const uid = window.auth.currentUser?.uid;
                          if (uid) {
-                             await userService.updateUserProfile(uid, { bio: bio });
+                             const profileData = { bio };
+                             if (avatarUrl !== undefined) {
+                                 profileData.photoURL = avatarUrl;
+                             }
+                             await userService.updateUserProfile(uid, profileData);
                              await userService.updateUserStatus(uid, status);
-                             
-                             // Also update local UI elements like status in sidebar if needed
-                             // For now, simple alert or toast
-                             alert('Profile updated successfully!');
+
+                             // Update Firebase Auth profile photo if changed
+                             if (avatarUrl !== undefined && window.auth.currentUser) {
+                                 await updateProfile(window.auth.currentUser, { photoURL: avatarUrl });
+                             }
+
+                             // Update sidebar avatar
+                             const sidebarAvatar = document.querySelector('.sidebar-footer .user-avatar');
+                             if (sidebarAvatar && avatarUrl) {
+                                 sidebarAvatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                             }
+
+                             // Show success feedback
+                             if (feedback) {
+                                 feedback.style.display = 'block';
+                                 feedback.style.background = 'rgba(45, 125, 70, 0.3)';
+                                 feedback.style.color = '#43b581';
+                                 feedback.textContent = 'Profile updated successfully!';
+                                 setTimeout(() => { feedback.style.display = 'none'; }, 3000);
+                             }
                          }
                      } catch (error) {
                          console.error("Error saving profile:", error);
-                         alert('Failed to save profile.');
+                         if (feedback) {
+                             feedback.style.display = 'block';
+                             feedback.style.background = 'rgba(237, 66, 69, 0.3)';
+                             feedback.style.color = '#ed4245';
+                             feedback.textContent = 'Failed to save profile. Please try again.';
+                             setTimeout(() => { feedback.style.display = 'none'; }, 4000);
+                         }
                      } finally {
                          saveBtn.textContent = originalText;
                          saveBtn.disabled = false;
                      }
+                }
+            }
+
+            // Password Change Form
+            if (e.target.id === 'password-change-form') {
+                e.preventDefault();
+                const currentPw = document.getElementById('current-password').value;
+                const newPw = document.getElementById('new-password').value;
+                const confirmPw = document.getElementById('confirm-password').value;
+                const changeBtn = document.getElementById('change-password-btn');
+                const feedback = document.getElementById('password-feedback');
+
+                // Validation
+                if (!currentPw || !newPw || !confirmPw) {
+                    if (feedback) {
+                        feedback.style.display = 'block';
+                        feedback.style.background = 'rgba(237, 66, 69, 0.3)';
+                        feedback.style.color = '#ed4245';
+                        feedback.textContent = 'Please fill in all password fields.';
+                    }
+                    return;
+                }
+
+                if (newPw.length < 6) {
+                    if (feedback) {
+                        feedback.style.display = 'block';
+                        feedback.style.background = 'rgba(237, 66, 69, 0.3)';
+                        feedback.style.color = '#ed4245';
+                        feedback.textContent = 'New password must be at least 6 characters.';
+                    }
+                    return;
+                }
+
+                if (newPw !== confirmPw) {
+                    if (feedback) {
+                        feedback.style.display = 'block';
+                        feedback.style.background = 'rgba(237, 66, 69, 0.3)';
+                        feedback.style.color = '#ed4245';
+                        feedback.textContent = 'New passwords do not match.';
+                    }
+                    return;
+                }
+
+                if (changeBtn) {
+                    const originalText = changeBtn.textContent;
+                    changeBtn.textContent = 'Changing...';
+                    changeBtn.disabled = true;
+
+                    try {
+                        const user = window.auth.currentUser;
+                        if (!user || !user.email) throw new Error('Not authenticated');
+
+                        // Re-authenticate the user first
+                        const credential = EmailAuthProvider.credential(user.email, currentPw);
+                        await reauthenticateWithCredential(user, credential);
+
+                        // Update password
+                        await updatePassword(user, newPw);
+
+                        // Clear fields
+                        document.getElementById('current-password').value = '';
+                        document.getElementById('new-password').value = '';
+                        document.getElementById('confirm-password').value = '';
+
+                        if (feedback) {
+                            feedback.style.display = 'block';
+                            feedback.style.background = 'rgba(45, 125, 70, 0.3)';
+                            feedback.style.color = '#43b581';
+                            feedback.textContent = 'Password changed successfully!';
+                            setTimeout(() => { feedback.style.display = 'none'; }, 3000);
+                        }
+                    } catch (error) {
+                        console.error("Error changing password:", error);
+                        let errorMsg = 'Failed to change password.';
+                        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                            errorMsg = 'Current password is incorrect.';
+                        } else if (error.code === 'auth/weak-password') {
+                            errorMsg = 'New password is too weak. Use at least 6 characters.';
+                        } else if (error.code === 'auth/requires-recent-login') {
+                            errorMsg = 'Please log out and log back in, then try again.';
+                        }
+                        if (feedback) {
+                            feedback.style.display = 'block';
+                            feedback.style.background = 'rgba(237, 66, 69, 0.3)';
+                            feedback.style.color = '#ed4245';
+                            feedback.textContent = errorMsg;
+                            setTimeout(() => { feedback.style.display = 'none'; }, 5000);
+                        }
+                    } finally {
+                        changeBtn.textContent = originalText;
+                        changeBtn.disabled = false;
+                    }
                 }
             }
         });
@@ -681,7 +802,7 @@ class Router {
                     // The onSnapshot listener will handle updating the UI
                 } catch (error) {
                     console.error("Failed to send message", error);
-                    alert("Failed to send message. Please try again.");
+                    toast.error("Failed to send message. Please try again.");
                 }
             });
 
@@ -820,7 +941,7 @@ class Router {
                      if (result.success) {
                          console.log('Room created:', result.id);
                          closeModal();
-                         alert(`Room "${name}" created successfully!`);
+                         toast.success(`Room "${name}" created!`);
                          
                          // Refresh rooms list immediately
                          const rooms = await this.loadSectionData('rooms', uid);
@@ -829,11 +950,11 @@ class Router {
                          // Re-attach listeners because content was replaced
                          this.attachDashboardListeners();
                      } else {
-                         alert('Failed to create room: ' + result.error);
+                         toast.error('Failed to create room: ' + result.error);
                      }
                  } catch (error) {
                      console.error("Error creating room:", error);
-                     alert('An error occurred.');
+                     toast.error('An error occurred.');
                  } finally {
                      if (submitBtn) {
                         submitBtn.textContent = originalText;
@@ -916,7 +1037,7 @@ class Router {
                     
                     if (result.success) {
                         closeModal();
-                        alert(`Friend request sent to ${targetUsername}!`);
+                        toast.success(`Friend request sent to ${targetUsername}!`);
                     } else {
                         errorEl.textContent = result.error || "Failed to send request.";
                         errorEl.style.display = 'block';
@@ -972,10 +1093,10 @@ class Router {
                     updateDashboardSection('rooms', user, rooms);
                     // Re-attach listeners because content was replaced
                     this.attachDashboardListeners();
-                    alert("Joined room successfully!");
+                    toast.success("Joined room successfully!");
                 } catch (error) {
                     console.error("Error joining room:", error);
-                    alert("Failed to join room.");
+                    toast.error("Failed to join room.");
                     btn.textContent = originalText;
                     btn.disabled = false;
                 }
