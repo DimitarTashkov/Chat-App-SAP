@@ -547,3 +547,96 @@ button:active {
     font-weight: 500;
 }
 
+/* ============================================
+   Toast Notifications
+   ============================================ */
+#toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 280px;
+    max-width: 420px;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateX(100%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: auto;
+}
+
+.toast-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-exit {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-success {
+    background-color: #2d7d46;
+}
+
+.toast-error {
+    background-color: #d83c3e;
+}
+
+.toast-warning {
+    background-color: #c27c0e;
+}
+
+.toast-info {
+    background-color: #4752c4;
+}
+
+.toast-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    color: white;
+}
+
+/* ============================================
+   Loading Spinner (enhanced)
+   ============================================ */
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.15);
+    border-top-color: #5865f2;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 2rem auto;
+}
+
