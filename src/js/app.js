@@ -184,8 +184,7 @@ class Router {
 
                     if (result && result.success) {
                         console.log('Auth successful', result.user);
-                        // Manually navigate to dashboard since auth state change listener might be delayed
-                        this.navigateTo('dashboard');
+                        // Auth state change listener will handle navigation with proper user profile
                     } else {
                         console.error('Auth error:', result?.error);
                         toast.error('Auth failed: ' + (result?.error || 'Unknown error'));

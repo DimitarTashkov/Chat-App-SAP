@@ -14,7 +14,7 @@ export async function getUserById(userId) {
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
-            return userSnap.data();
+            return { id: userSnap.id, ...userSnap.data() };
         } else {
             console.warn(`User document not found for ID: ${userId}`);
             return null;
