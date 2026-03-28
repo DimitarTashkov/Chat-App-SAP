@@ -169,7 +169,3 @@ The app uses Firebase Security Rules to protect data:
 - **Friend requests** require authentication and prevent self-requests
 
 ---
-
-## 📝 License
-
-This project is open source and available under the [MIT License](LICENSE).
